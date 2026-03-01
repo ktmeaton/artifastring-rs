@@ -20,7 +20,6 @@ fn main() -> Result<(), Report> {
         .filter(None, args.verbosity.to_level_filter())
         .init();
 
-
     // check which CLI command we're running (dataset, run, plot)
     match args.command {
         // actions2wav

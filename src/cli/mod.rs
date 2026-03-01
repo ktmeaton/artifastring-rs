@@ -26,6 +26,7 @@ pub struct Cli {
     #[clap(short = 'v', long)]
     #[clap(value_enum, default_value_t = Verbosity::default())]
     #[clap(hide_possible_values = false)]
+    #[clap(global = true)]
     pub verbosity: Verbosity,
 }
 
@@ -56,7 +57,9 @@ impl Verbosity {
     pub fn to_level_filter(&self) -> LevelFilter {
         match self {
             Verbosity::Info => LevelFilter::Info,
-            _ => LevelFilter::Info,
+            Verbosity::Debug => LevelFilter::Debug,
+            Verbosity::Warn => LevelFilter::Warn,
+            Verbosity::Error => LevelFilter::Error,
         }
     }
 }
