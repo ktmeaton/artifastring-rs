@@ -1,0 +1,31 @@
+[package]
+name = "artifastring"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap         = { version = "4.5.51", default-features = false, features = ["std", "derive", "help", "usage", "color"] }
+color-eyre   = { version = "0.6.5",  default-features = false }
+env_logger   = { version = "0.11.8", default-features = false }
+itertools    = { version = "0.14.0", default-features = false, features = ["use_std"]}
+log          = { version = "0.4.28", default-features = false }
+
+# Enable a small amount of optimization in debug mode
+[profile.dev]
+opt-level = 1
+
+# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+# Binary size reduction tips from: https://github.com/johnthagen/min-sized-rust
+strip         = true  # Strip Symbols from Binary
+lto           = true # Enable Link Time Optimization (LTO)
+codegen-units = 1 # Reduce Parallel Code Generation Units to Increase Optimization
+
+# A profile for compiling for flamegraph visualization
+[profile.flamegraph]
+inherits = "release"
+debug = true
+strip = false
