@@ -1,8 +1,7 @@
 use clap::{ValueEnum};
-use color_eyre::eyre::{eyre, Report, Result};
 
 use crate::{Action, ArtifastringString, ArtifastringConvolution};
-use crate::{constants::*, constants::lowpass::*};
+use crate::{constants::*, constants::lowpass::*, constants::body::*};
 
 pub const ARTIFASTRING_INSTRUMENT_SAMPLE_RATE: u32 = 44100;
 pub const HAPTIC_DOWNSAMPLE_FACTOR: u32 = 1;
@@ -31,7 +30,20 @@ pub enum InstrumentNumber {
     One,
     Two,
     Three,
-    Four
+    Four,
+    Five,
+}
+
+impl InstrumentNumber {
+    pub fn index(&self) -> usize {
+        match &self {
+            InstrumentNumber::One => 0,
+            InstrumentNumber::Two => 1,
+            InstrumentNumber::Three => 2,
+            InstrumentNumber::Four => 3,
+            InstrumentNumber::Five => 4,
+        }
+    }
 }
 
 pub struct ArtifastringInstrument {
@@ -40,10 +52,10 @@ pub struct ArtifastringInstrument {
     pub strings: Vec<ArtifastringString>,
     pub string_audio_lowpass_convolution: Vec<Option<ArtifastringConvolution>>,
     pub string_force_lowpass_convolution: Vec<Option<ArtifastringConvolution>>,
-    pub string_audio_lowpass_input: Vec<Option<f32>>,
-    pub string_force_lowpass_input: Vec<Option<f32>>,
-    pub body_audio_convolution: Option<f32>,
-    pub body_force_convolution: Option<f32>,
+    pub string_audio_lowpass_input: Vec<Option<Vec<f32>>>,
+    pub string_force_lowpass_input: Vec<Option<Vec<f32>>>,
+    pub body_audio_convolution: Option<ArtifastringConvolution>,
+    pub body_force_convolution: Option<Vec<f32>>,
 }
 
 impl ArtifastringInstrument {
@@ -57,7 +69,8 @@ impl ArtifastringInstrument {
                 instrument_type,
                 instrument_number,
                 st,
-                //fs_multiply, instrument_sample_rate
+                // fs_multiply,
+                // instrument_sample_rate
             )
         }).collect();
 
@@ -66,45 +79,54 @@ impl ArtifastringInstrument {
         // FFT stuff
 
         // Lowpass
-        let string_audio_lowpass_convolution = vec![None; strings.len()];
-        let string_force_lowpass_convolution = vec![None; strings.len()];
-        let string_audio_lowpass_input = vec![None; strings.len()];
-        let string_force_lowpass_input = vec![None; strings.len()];
+        let mut string_audio_lowpass_convolution = vec![None; strings.len()];
+        let mut string_force_lowpass_convolution = vec![None; strings.len()];
+        let mut string_audio_lowpass_input = vec![None; strings.len()];
+        let mut string_force_lowpass_input = vec![None; strings.len()];
+        let mut body_audio_convolution = None;
+        let mut body_force_convolution = None;
 
-        let body_audio_convolution = None;
-        let body_force_convolution = None;
-
-        strings.iter().enumerate().for_each(|(i, st)| {
+        strings.iter().enumerate().for_each(|(st, _)| {
             // let fs_multiply = 1;
-            let fs_multiply = FS_MULTIPLICATION_FACTOR[instrument_type.index()][i];
+            let fs_multiply = FS_MULTIPLICATION_FACTOR[instrument_type.index()][st];
 
             // lowpass setup
-            let mut lowpass_time_data: &[f32];
-            let mut lowpass_num_taps: i32;
-
-            println!("TS");
             let lowpass_time_data = match fs_multiply {
                 1 => LOWPASS_1.to_vec(),
                 2 => LOWPASS_2.to_vec(),
                 3 => LOWPASS_3.to_vec(),
-                _ => LOWPASS_1.to_vec(),
-                // 2 => &LOWPASS_2,
-                // 3 => &LOWPASS_3,
-                // 4 => &LOWPASS_4,
-            };
-            //     lowpass_time_data = LOWPASS_1,
-            //     lowpass_num_taps = NUM_TAPS_LOWPASS_1;
-            // } else if (fs_multiply == 2) {
-            //     lowpass_time_data = LOWPASS_2,
-            //     lowpass_num_taps = NUM_TAPS_LOWPASS_2;
-            // } else if (fs_multiply == 3) {
-            //     lowpass_time_data = LOWPASS_3,
-            //     lowpass_num_taps = NUM_TAPS_LOWPASS_3;
-            // } else if (fs_multiply == 4) {
-            //     lowpass_time_data = LOWPASS_4,
-            //     lowpass_num_taps = NUM_TAPS_LOWPASS_4;
-            // }
+                4 => LOWPASS_4.to_vec(),
+                _ => LOWPASS_4.to_vec(),
+            }.to_vec();
+            let lowpass_num_taps = lowpass_time_data.len() as u32;
+
+            // If the requested sample rate is the default sample rate, we're done.
+            // If not, the supplied convolution has to be scaled for the new sample
+            // rate. resample_time_data takes care of that, with memoization
+            // resample_time_data(lowpass_time_data, lowpass_num_taps, instrument_sample_rate);
+
+            let convolution = ArtifastringConvolution::new(fs_multiply, lowpass_time_data, lowpass_num_taps);
+            let input_buffer = convolution.get_input_buffer();
+
+            string_audio_lowpass_convolution[st] = Some(convolution.clone());
+            string_force_lowpass_convolution[st] = Some(convolution);
+
+            string_audio_lowpass_input[st] = Some(input_buffer.clone());
+            string_force_lowpass_input[st] = Some(input_buffer);
         });
+
+        // body
+        let body_time_data = match instrument_type {
+            InstrumentType::Violin => BODY_VIOLIN_S[instrument_number.index()],
+            InstrumentType::Viola  => BODY_VIOLA_S[instrument_number.index()],
+            InstrumentType::Cello  => BODY_CELLO_S[instrument_number.index()],
+        }.to_vec();
+        let body_num_taps = body_time_data.len() as u32;
+        // resample_time_data(body_time_data, body_num_taps, instrument_sample_rate);
+
+        let body_convolution = ArtifastringConvolution::new(1, body_time_data, body_num_taps);
+        let body_audio_input = Some(body_convolution.get_input_buffer());
+        body_audio_convolution = Some(body_convolution);
 
         Self {
             instrument_type,

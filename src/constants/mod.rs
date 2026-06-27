@@ -1,3 +1,4 @@
+pub mod body;
 pub mod strings_violin;
 pub mod lowpass;
 

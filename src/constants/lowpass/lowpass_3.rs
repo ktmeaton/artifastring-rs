@@ -1,6 +1,5 @@
 /* This file was automatically generated */
 
-pub const NUM_TAPS_LOWPASS_3: u32 = 213;
 pub const LOWPASS_3: [f32; 213] = [
     /* lowpass */
     1.7081874174531580729e-07,
