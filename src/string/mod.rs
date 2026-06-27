@@ -1,7 +1,11 @@
+use crate::{InstrumentType, InstrumentNumber};  
+
 pub struct ArtifastringString {
-    pub file_path: PathBuf,
-    pub byte_size: u32,
-    pub sample_rate: u32,
-    pub total_samples: u32,
-    pub haptic_downsample_factor: u32,
+    
+}
+
+impl ArtifastringString {
+    pub fn new(instrument_type: InstrumentType, instrument_number: InstrumentNumber, number: u32) -> Self {
+        Self {}
+    }
 }

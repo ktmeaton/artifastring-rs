@@ -27,7 +27,7 @@ pub fn run(args: &cli::actions2wav::Args) -> Result<(), Report> {
     // TBD: forces log file
     // TBD: string log files
 
-    let artifastring_instrument = ArtifastringInstrument { instrument_type: args.instrument_type, instrument_number: args.instrument_number};
+    let artifastring_instrument = ArtifastringInstrument::new(args.instrument_type, args.instrument_number);
     let mut wav_file = MonoWav {
         file_path: args.output.clone(),
         byte_size: 4096,
@@ -45,24 +45,51 @@ pub fn play_file(
     instrument: &ArtifastringInstrument,
     wav_file: &mut MonoWav,
 ) {
-    let total_samples = 0;
+    wav_file.total_samples = 0;
 
     input.iter().for_each(|command| {
+        wait_until(instrument, wav_file, command);
         match command.action_type {
-            ActionType::Release       => command_reset(instrument, wav_file, command),
-            ActionType::Wait          => command_wait(instrument, wav_file, command),
-            ActionType::Finger        => command_finger(instrument, wav_file, command),
-            ActionType::Bow           => (),
-            ActionType::BowAccelerate => (),
-            ActionType::Pluck         => (),
+            ActionType::Release       => instrument.reset(),
+            ActionType::Finger        => instrument.finger(command),
+            ActionType::Bow           => instrument.bow(command),
+            ActionType::BowAccelerate => instrument.bow_accel(command),
+            ActionType::Pluck         => instrument.pluck(command),
+            ActionType::Wait          => (),
         }
     });
     // delete violin
     // delete wavfile
 }
 
+pub fn command_bow(
+    instrument: &ArtifastringInstrument,
+    wav_file: &mut MonoWav,
+    command: &Action,
+) {
+    wait_until(instrument, wav_file, command);
+    instrument.bow(command);
+}
+
+pub fn command_bow_accel(
+    instrument: &ArtifastringInstrument,
+    wav_file: &mut MonoWav,
+    command: &Action,
+) {
+    wait_until(instrument, wav_file, command);
+    instrument.bow_accel(command);
+}
 
 pub fn command_finger(
+    instrument: &ArtifastringInstrument,
+    wav_file: &mut MonoWav,
+    command: &Action,
+) {
+    wait_until(instrument, wav_file, command);
+    instrument.finger(command);
+}
+
+pub fn command_pluck(
     instrument: &ArtifastringInstrument,
     wav_file: &mut MonoWav,
     command: &Action,
@@ -98,15 +125,15 @@ pub fn wait_until(
 )
 {
     println!("{command:?}");
-    let mut delta: u32 = (command.seconds * (wav_file.sample_rate as f32) - (wav_file.total_samples as f32)) as u32;
-    println!("delta: {delta}");
+    let mut delta: i32 = (command.seconds * (wav_file.sample_rate as f32) - (wav_file.total_samples as f32)) as i32;
     if delta >= 0 {
+        let mut delta = delta as u32;
         delta = wav_file.haptic_downsample_factor * ( delta / wav_file.haptic_downsample_factor);
-        // short *array = wavfile->request_fill(delta);
         wav_file.total_samples += delta;
     } else {
         println!("ERROR: going back in time!");
         // TBD: more logging
     }
+    //println!("until: {}, delta: {delta}, total_samples: {}", command.seconds, wav_file.total_samples);
 }
 

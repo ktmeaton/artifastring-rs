@@ -1,14 +1,18 @@
 pub mod actions2wav;
 pub mod cli;
+pub mod constants;
+pub mod convolution;
 pub mod instrument;
 pub mod monowav;
+pub mod string;
 
 use color_eyre::eyre::{eyre, Report, Result};
 use std::str::FromStr;
-use std::path::PathBuf;
-
+use constants::*;
+use convolution::*;
 use instrument::*;
 use monowav::*;
+use string::*;
 
 #[derive(Debug, PartialEq)]
 pub enum ActionType {
