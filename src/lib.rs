@@ -1,26 +1,14 @@
 pub mod actions2wav;
 pub mod cli;
+pub mod instrument;
+pub mod monowav;
 
-use clap::ValueEnum;
 use color_eyre::eyre::{eyre, Report, Result};
 use std::str::FromStr;
+use std::path::PathBuf;
 
-#[derive(Clone, Debug, Default, ValueEnum)]
-pub enum InstrumentType {
-    #[default]
-    Violin,
-    Viola,
-    Cello
-}
-
-#[derive(Clone, Debug, Default, ValueEnum)]
-pub enum InstrumentNumber {
-    #[default]
-    One,
-    Two,
-    Three,
-    Four
-}
+use instrument::*;
+use monowav::*;
 
 #[derive(Debug, PartialEq)]
 pub enum ActionType {
