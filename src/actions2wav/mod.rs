@@ -1,9 +1,8 @@
 use crate::cli;
-use crate::Action;
+use crate::{Action};
 use color_eyre::eyre::{Report, Result, WrapErr};
 use itertools::Itertools;
 use log::{debug};
-use std::str::FromStr;
 
 /// Run actions2wav
 pub fn run(args: &cli::actions2wav::Args) -> Result<(), Report> {
@@ -17,24 +16,16 @@ pub fn run(args: &cli::actions2wav::Args) -> Result<(), Report> {
     }
 
     // Convert to vector of tab separate elements
-    input
+    let actions = input
         .split('\n')
         .map(String::from)
-        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .filter(|l| !l.is_empty() && !l.starts_with('#')) // Ignore comment lines
         .map(|l| l.split("\t").map(String::from).collect_vec()) // Split on tab
-        // testing
-        .map(|l| {
-            Action::from_str(&l[0])
-            // match l[0].as_str() {
-            //     "a" => Some(Action::BowAccelerate),
-            //     "b" => Some(Action::Bow),
-            //     "f" => Some(Action::Finger),
-            //     "p" => Some(Action::Pluck),
-            //     _ => None,
-            // }
-        })
-        .inspect(|l| println!("{l:?}") )
-        .collect_vec();
+        .map(|l|  Action::from_array(&l)) // Parse to Action
+        .collect::<Result<Vec<_>, _>>()?; // Collect and handle errors
+
+    actions.into_iter().for_each(|a| println!("{a:?}"));
+
 
     Ok(())
 }
