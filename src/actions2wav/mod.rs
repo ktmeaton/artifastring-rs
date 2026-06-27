@@ -27,7 +27,11 @@ pub fn run(args: &cli::actions2wav::Args) -> Result<(), Report> {
     // TBD: forces log file
     // TBD: string log files
 
-    let artifastring_instrument = ArtifastringInstrument::new(args.instrument_type, args.instrument_number);
+    let artifastring_instrument = ArtifastringInstrument::new(
+        args.instrument_type,
+        args.instrument_number,
+        args.sample_rate
+    );
     let mut wav_file = MonoWav {
         file_path: args.output.clone(),
         byte_size: 4096,
@@ -61,62 +65,6 @@ pub fn play_file(
     // delete violin
     // delete wavfile
 }
-
-pub fn command_bow(
-    instrument: &ArtifastringInstrument,
-    wav_file: &mut MonoWav,
-    command: &Action,
-) {
-    wait_until(instrument, wav_file, command);
-    instrument.bow(command);
-}
-
-pub fn command_bow_accel(
-    instrument: &ArtifastringInstrument,
-    wav_file: &mut MonoWav,
-    command: &Action,
-) {
-    wait_until(instrument, wav_file, command);
-    instrument.bow_accel(command);
-}
-
-pub fn command_finger(
-    instrument: &ArtifastringInstrument,
-    wav_file: &mut MonoWav,
-    command: &Action,
-) {
-    wait_until(instrument, wav_file, command);
-    instrument.finger(command);
-}
-
-pub fn command_pluck(
-    instrument: &ArtifastringInstrument,
-    wav_file: &mut MonoWav,
-    command: &Action,
-) {
-    wait_until(instrument, wav_file, command);
-    instrument.finger(command);
-}
-
-pub fn command_reset(
-    instrument: &ArtifastringInstrument,
-    wav_file: &mut MonoWav,
-    command: &Action,
-) {
-    wait_until(instrument, wav_file,  command);
-    instrument.reset();
-}
-
-
-pub fn command_wait(
-    instrument: &ArtifastringInstrument,
-    wav_file: &mut MonoWav,
-    command: &Action,
-) {
-    wait_until(instrument, wav_file, command);
-}
-
-
 
 pub fn wait_until(
     instrument: &ArtifastringInstrument,

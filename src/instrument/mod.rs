@@ -6,6 +6,7 @@ use crate::{constants::*, constants::lowpass::*, constants::body::*};
 pub const ARTIFASTRING_INSTRUMENT_SAMPLE_RATE: u32 = 44100;
 pub const HAPTIC_DOWNSAMPLE_FACTOR: u32 = 1;
 pub const NUM_VIOLIN_STRINGS: u32 = 4;
+
 #[derive(Clone, Copy, Debug, Default, ValueEnum)]
 pub enum InstrumentType {
     #[default]
@@ -49,6 +50,7 @@ impl InstrumentNumber {
 pub struct ArtifastringInstrument {
     pub instrument_type: InstrumentType,
     pub instrument_number: InstrumentNumber,
+    pub instrument_sample_rate: u32,
     pub strings: Vec<ArtifastringString>,
     pub string_audio_lowpass_convolution: Vec<Option<ArtifastringConvolution>>,
     pub string_force_lowpass_convolution: Vec<Option<ArtifastringConvolution>>,
@@ -60,17 +62,14 @@ pub struct ArtifastringInstrument {
 
 impl ArtifastringInstrument {
 
-    pub fn new(instrument_type: InstrumentType, instrument_number: InstrumentNumber) -> Self {
+    pub fn new(instrument_type: InstrumentType, instrument_number: InstrumentNumber, instrument_sample_rate: u32) -> Self {
         // Create the strings
         let strings: Vec<ArtifastringString> = (1..NUM_VIOLIN_STRINGS).map(|st| {
-            // let fs_multiply = 1;
-            // let fs_multiply = FS_MULTIPLICATION_FACTOR[m_instrument_type][st];
             ArtifastringString::new(
                 instrument_type,
                 instrument_number,
+                instrument_sample_rate,
                 st,
-                // fs_multiply,
-                // instrument_sample_rate
             )
         }).collect();
 
@@ -86,9 +85,9 @@ impl ArtifastringInstrument {
         let mut body_audio_convolution = None;
         let mut body_force_convolution = None;
 
-        strings.iter().enumerate().for_each(|(st, _)| {
+        strings.iter().enumerate().for_each(|(i, st)| {
             // let fs_multiply = 1;
-            let fs_multiply = FS_MULTIPLICATION_FACTOR[instrument_type.index()][st];
+            let fs_multiply = FS_MULTIPLICATION_FACTOR[instrument_type.index()][i];
 
             // lowpass setup
             let lowpass_time_data = match fs_multiply {
@@ -97,7 +96,7 @@ impl ArtifastringInstrument {
                 3 => LOWPASS_3.to_vec(),
                 4 => LOWPASS_4.to_vec(),
                 _ => LOWPASS_4.to_vec(),
-            }.to_vec();
+            };
             let lowpass_num_taps = lowpass_time_data.len() as u32;
 
             // If the requested sample rate is the default sample rate, we're done.
@@ -108,11 +107,11 @@ impl ArtifastringInstrument {
             let convolution = ArtifastringConvolution::new(fs_multiply, lowpass_time_data, lowpass_num_taps);
             let input_buffer = convolution.get_input_buffer();
 
-            string_audio_lowpass_convolution[st] = Some(convolution.clone());
-            string_force_lowpass_convolution[st] = Some(convolution);
+            string_audio_lowpass_convolution[i] = Some(convolution.clone());
+            string_force_lowpass_convolution[i] = Some(convolution);
 
-            string_audio_lowpass_input[st] = Some(input_buffer.clone());
-            string_force_lowpass_input[st] = Some(input_buffer);
+            string_audio_lowpass_input[i] = Some(input_buffer.clone());
+            string_force_lowpass_input[i] = Some(input_buffer);
         });
 
         // body
@@ -131,6 +130,7 @@ impl ArtifastringInstrument {
         Self {
             instrument_type,
             instrument_number,
+            instrument_sample_rate,
             strings,
             string_audio_lowpass_convolution,
             string_force_lowpass_convolution,
@@ -143,7 +143,7 @@ impl ArtifastringInstrument {
 
     // Stops all movement
     pub fn reset(&self) {
-
+        self.strings.iter().for_each(|st| st.reset());
     }
 
     // Places finger on the string.

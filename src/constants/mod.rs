@@ -1,5 +1,5 @@
 pub mod body;
-pub mod strings_violin;
+pub mod strings;
 pub mod lowpass;
 
 // time length of each sample, in seconds
