@@ -1,5 +1,6 @@
 use crate::cli;
 use crate::{Action, ActionType, ArtifastringInstrument, MonoWav};
+
 use color_eyre::eyre::{Report, Result, WrapErr};
 use itertools::Itertools;
 use log::{debug};
@@ -8,14 +9,14 @@ use log::{debug};
 pub fn run(args: &cli::actions2wav::Args) -> Result<(), Report> {
     debug!("actions2wav | {args:?}");
 
-    // Read input into string
+    // Read file input into string
     let mut input = std::fs::read_to_string(&args.input)
         .wrap_err(format!("Failed to read file: {}", args.input.display()))?;
     if input.ends_with('\n') || input.ends_with('\r') {
         input.pop();
     }
 
-    // Convert to vector of tab separate elements
+    // Convert to vector of tab d elements
     let actions = input
         .split('\n')
         .map(String::from)
@@ -60,6 +61,7 @@ pub fn play_file(
             ActionType::BowAccelerate => instrument.bow_accel(command),
             ActionType::Pluck         => instrument.pluck(command),
             ActionType::Wait          => (),
+            ActionType::Off           => todo!(),
         }
     });
     // delete violin
@@ -67,16 +69,18 @@ pub fn play_file(
 }
 
 pub fn wait_until(
-    instrument: &ArtifastringInstrument,
+    _instrument: &ArtifastringInstrument,
     wav_file: &mut MonoWav,
     command: &Action,
 )
 {
     println!("{command:?}");
-    let mut delta: i32 = (command.seconds * (wav_file.sample_rate as f32) - (wav_file.total_samples as f32)) as i32;
+    let delta: i32 = (command.seconds * (wav_file.sample_rate as f32) - (wav_file.total_samples as f32)) as i32;
     if delta >= 0 {
         let mut delta = delta as u32;
         delta = wav_file.haptic_downsample_factor * ( delta / wav_file.haptic_downsample_factor);
+        // short *array = wavfile->request_fill(delta);
+        // int unsafe = violin->wait_samples_forces(array, NULL, delta);        
         wav_file.total_samples += delta;
     } else {
         println!("ERROR: going back in time!");

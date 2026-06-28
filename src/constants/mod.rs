@@ -11,26 +11,20 @@ pub const FS_MULTIPLICATION_FACTOR: [[u32; 4]; 3] = [
     [1,1,1,2], // Cello
 ];
 
-// pluck constants, estimated from listening
-const PLUCK_VELOCITY: f32 = 0.1; // in m/s
-const PLUCK_DISPLACEMENT: f32 = 0.005; // in m
-const PLUCK_SECONDS: f32 = 0.1; // in seconds
+pub const NORMAL_BUFFER_SIZE: u32 = 441;
 
-const K_FINGER: f32 = 1e5;
-const R_FINGER: f32 = 30.0;
-const K_PLUCK: f32  = 1e4;
-const R_PLUCK: f32  = 1e1;
+// // pluck constants, estimated from listening
+// const PLUCK_VELOCITY: f32 = 0.1; // in m/s
+// const PLUCK_DISPLACEMENT: f32 = 0.005; // in m
+// const PLUCK_SECONDS: f32 = 0.1; // in seconds
 
-const PLUCK_WIDTH: f32 = 0.012; // m
-const FINGER_WIDTH: f32 = 0.01; // m
+// const K_FINGER: f32 = 1e5;
+// const R_FINGER: f32 = 30.0;
+// const K_PLUCK: f32  = 1e4;
+// const R_PLUCK: f32  = 1e1;
 
-// noise
-const A_noise: f32 = 0.02; // estimated from listening
+// const PLUCK_WIDTH: f32 = 0.012; // m
+// const FINGER_WIDTH: f32 = 0.01; // m
 
-// // string physical constants
-// #include "constants/strings_violin.h"
-// #include "constants/strings_viola.h"
-// #include "constants/strings_cello.h"
-
-// #endif
-
+// // noise
+// const A_noise: f32 = 0.02; // estimated from listening

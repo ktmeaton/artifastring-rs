@@ -4,7 +4,11 @@ pub struct ArtifastringConvolution {
 }
 
 impl ArtifastringConvolution {
-    pub fn new(fs_multiply: u32, lowpass_time_data: Vec<f32>, lowpass_num_taps: u32) -> Self {
+    pub fn new(
+        _fs_multiply: u32,
+        _lowpass_time_data: Vec<f32>,
+        _lowpass_num_taps: u32
+    ) -> Self {
         Self{}
     }
 

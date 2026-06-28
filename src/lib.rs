@@ -8,14 +8,15 @@ pub mod string;
 
 use color_eyre::eyre::{eyre, Report, Result};
 use std::str::FromStr;
-use constants::*;
 use convolution::*;
 use instrument::*;
 use monowav::*;
 use string::*;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 pub enum ActionType {
+    #[default]
+    Off,
     Bow,
     BowAccelerate,
     Finger,
@@ -67,6 +68,7 @@ impl FromStr for StringNumber {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Action {
     action_type: ActionType,
     seconds: f32,
