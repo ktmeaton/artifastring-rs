@@ -18,7 +18,7 @@ pub const NORMAL_BUFFER_SIZE: u32 = 441;
 // const PLUCK_DISPLACEMENT: f32 = 0.005; // in m
 // const PLUCK_SECONDS: f32 = 0.1; // in seconds
 
-// const K_FINGER: f32 = 1e5;
+pub const K_FINGER: f32 = 1e5;
 // const R_FINGER: f32 = 30.0;
 // const K_PLUCK: f32  = 1e4;
 // const R_PLUCK: f32  = 1e1;

@@ -1,5 +1,5 @@
 use std::f32::consts::PI;
-use ndarray::{arr1, Array1};
+use ndarray::{arr1, Array1, s};
 use log::warn;
 
 use crate::{
@@ -68,8 +68,9 @@ impl ArtifastringString {
         let _ah = arr1(&vec![0.0; N]);
         // AA adh;
         // AA fn;
-        let n = arr1(&vec![0.0; N]);
+        //let n = arr1(&vec![0.0; N]);
         let inside_phi = arr1(&vec![0.0; N]);
+        let n = arr1(&(1..=64).map(|i| i as f32).collect::<Vec<f32>>());
 
         let mut string = Self{ N, n, fs_multiplier, pc, sc, vc, ss, va, fs, dt, inside_phi};
         string.set_physical_constants();
@@ -143,7 +144,7 @@ impl ArtifastringString {
             warn!("           Nyquist freq: {}", fs/2.0);
         }
 
-        let w = (w0.pow2() - rn.pow2()).sqrt();
+        let w = (w0.pow2() - rn.pow2()).sqrt();     
 
         self.sc.X1 = ((&w*dt).cos() + (&rn/&w)*((&w*dt).sin())) * ((-&rn*dt).exp());
         self.sc.X2 = ((&ones / &w) * (&w*dt).sin()) * ((-&rn*dt).exp());
@@ -155,6 +156,8 @@ impl ArtifastringString {
 
         self.sc.G = self.sc.sqrt_two_div_L as f32 * (pc.T * (n*PI*self.sc.div_pc_L) + pc.E*I*(n*PI*self.sc.div_pc_L).powi(3));
 
+        // println!("sc.G: {:?}", self.sc.G.slice(s![..10]));
+
         self.inside_phi = n*PI*self.sc.div_pc_L;
         self.vc.recache = true;
     }
@@ -163,36 +166,16 @@ impl ArtifastringString {
         // init everything, just to be safe
         self.cache_pc_c();
 
-        // plucks = 0;
+        // let plucks = 0;
 
-        // vc.x0  = 0.0f;
-        // vc.x1  = 0.0f;
-        // vc.x2  = 0.0f;
-        // vc.y_pluck = 0.0f;
-        // vc.y_pluck_target = 0.0f;
-        // va.Fb  = 0.0f;
-        // va.vb  = 0.0f;
-        // va.vb_target = 0.0f;
-        // va.va = 0.0f;
-        // vc.pluck_samples_remaining = 0;
-        // vc.recache = true;
+        self.vc = ViolinistCoefficients::default();
+        self.vc.recache = true;
+        
+        self.va = ViolinistActions::default();
+        self.va.Kf = K_FINGER;
+        self.ss = StringState::default();
 
-        // va.finger_position = 0.0f;
-        // va.bow_pluck_position = 0.0f;
-        // va.Kf = K_FINGER;
-
-        // vc.K0 = 0.0f;
-        // vc.R0 = 0.0f;
-        // vc.K2 = 0.0f;
-        // vc.K2 = 0.0f;
-
-        // ss.actions = OFF;
-
-        // ss.a.setZero();
-        // ss.ad.setZero();
-        // ss.slipstate = 0;
-
-        // debug_ticks = 0;
+        // let debug_ticks = 0;
     }
 }
 
