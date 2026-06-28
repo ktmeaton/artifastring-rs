@@ -1,5 +1,6 @@
 use std::f32::consts::PI;
 use ndarray::{arr1, Array1};
+use log::warn;
 
 use crate::{
     ActionType,
@@ -19,7 +20,11 @@ pub struct ArtifastringString {
     pub vc: ViolinistCoefficients,
     pub ss: StringState,
     pub va: ViolinistActions,
+    pub fs: f32,
+    pub dt: f32,
+    pub inside_phi: Array1<f32>,
 }
+
 
 impl ArtifastringString {
     pub fn new(
@@ -36,6 +41,7 @@ impl ArtifastringString {
         };
         #[allow(non_snake_case)]
         let N = pc.N as usize;
+        // Resize delays
 
         let _tick_output_force: f32;
         let _num_friction_skip_over_stick: u32;
@@ -52,20 +58,20 @@ impl ArtifastringString {
 
         let _plucks: u32;
         let fs_multiplier = FS_MULTIPLICATION_FACTOR[instrument_type.index()][string_number as usize];
-        let fs = fs_multiplier * instrument_sample_rate;
-        let _dt = 1.0 / fs as f32;
+        let fs = (fs_multiplier * instrument_sample_rate) as f32;
+        let dt = 1.0 / fs;
 
         let _audio_samples: [f32; (NORMAL_BUFFER_SIZE*3) as usize];
         let _force_samples: [f32; (NORMAL_BUFFER_SIZE*3) as usize];
 
         // to handle the memory alignment once
-        // let ah = vec![0.0; N]; // AA
+        let _ah = arr1(&vec![0.0; N]);
         // AA adh;
         // AA fn;
-        let n = arr1(&vec![0.0; N]); // AA
-        // AA inside_phi;
+        let n = arr1(&vec![0.0; N]);
+        let inside_phi = arr1(&vec![0.0; N]);
 
-        let mut string = Self{ N, n, fs_multiplier, pc, sc, vc, ss, va};
+        let mut string = Self{ N, n, fs_multiplier, pc, sc, vc, ss, va, fs, dt, inside_phi};
         string.set_physical_constants();
 
         // srand( time(NULL) );
@@ -77,20 +83,20 @@ impl ArtifastringString {
     #[allow(non_snake_case)]
     pub fn set_N(&mut self){
         let N = self.N;
-        self.sc.X1.resize(N, 0.0);
-        self.sc.X2.resize(N, 0.0);
-        self.sc.X3.resize(N, 0.0);
-        self.sc.Y1.resize(N, 0.0);
-        self.sc.Y2.resize(N, 0.0);
-        self.sc.Y3.resize(N, 0.0);
-        self.sc.G.resize(N, 0.0);
+        self.sc.X1 = arr1(&vec![0.0; N]);
+        self.sc.X2 = arr1(&vec![0.0; N]);
+        self.sc.X3 = arr1(&vec![0.0; N]);
+        self.sc.Y1 = arr1(&vec![0.0; N]);
+        self.sc.Y2 = arr1(&vec![0.0; N]);
+        self.sc.Y3 = arr1(&vec![0.0; N]);
+        self.sc.G = arr1(&vec![0.0; N]);
 
-        self.vc.phix0.resize(N, 0.0);
-        self.vc.phix1.resize(N, 0.0);
-        self.vc.phix2.resize(N, 0.0);
+        self.vc.phix0 = arr1(&vec![0.0; N]);
+        self.vc.phix1 = arr1(&vec![0.0; N]);
+        self.vc.phix2 = arr1(&vec![0.0; N]);
 
-        self.ss.a.resize(N, 0.0);
-        self.ss.ad.resize(N, 0.0);
+        self.ss.a = arr1(&vec![0.0; N]);
+        self.ss.ad = arr1(&vec![0.0; N]);
         // ah.resize(N);
         // adh.resize(N);
         // fn.resize(N);
@@ -98,6 +104,7 @@ impl ArtifastringString {
         // n.resize(N);
         // inside_phi.resize(N);
         // n = AA::LinSpaced(Eigen::Sequential, N, 1, N);
+
     }
 
     pub fn set_physical_constants(&mut self) {
@@ -111,61 +118,50 @@ impl ArtifastringString {
         self.sc.div_pc_L = 1.0 / self.pc.L;
         self.sc.sqrt_two_div_L = ( 2.0 / self.pc.L).sqrt();
         #[allow(non_snake_case)]
-        let I: f32 = PI * self.pc.d * self.pc.d * self.pc.d * self.pc.d / 64.0;        
+        let I: f32 = PI * self.pc.d * self.pc.d * self.pc.d * self.pc.d / 64.0;
+        #[allow(non_snake_case)]
         let N = self.N;
-        let ones = vec![1.0; N];
-        let rn = self.pc.rn;
-        let n = self.n.clone();
+        let ones =arr1(&vec![1.0; N]);
+        // Restrict delays to number of modes
+        let rn = arr1(&self.pc.rn[..N]);
+        // Get shorter references to simplify formulas before
+        let n = &self.n;
         let pc = &self.pc;
         let sc = &self.sc;
+        let fs = &self.fs;
+        let dt = self.dt;
 
 
         let w0 = (
-            (pc.T/pc.pl) * (n.clone()*PI*sc.div_pc_L).iter().map(|x| x * x).collect::<Array1<f32>>()
-            + (pc.E*I/pc.pl) * (n*PI*sc.div_pc_L).iter().map(|x| x * x * x).collect::<Array1<f32>>()
-        ).iter().map(|x| x.sqrt()).collect::<Array1<f32>>();
+            (pc.T/pc.pl) * (n*PI*sc.div_pc_L).pow2()
+            + (pc.E*I/pc.pl) * (n*PI*sc.div_pc_L).pow2().pow2()
+        ).sqrt();
 
-        // let w0 = ( 
-        // (pc.T/pc.pl) * ((n*PI*sc.div_pc_L).square())
-        //            + (pc.E*I/pc.pl) * ((n*PI*sc.div_pc_L).square().square()) ).sqrt();
+        let highest_freq = w0[N-1] / (2.0*PI);
+        if highest_freq > fs/2.0 {
+            warn!("BAD FREQ!  highest freq: {highest_freq}");
+            warn!("           Nyquist freq: {}", fs/2.0);
+        }
 
+        let w = (w0.pow2() - rn.pow2()).sqrt();
 
-    //     AA rn(N);
-    //     rn.resize(N);
-    //     for (unsigned int i = 0; i < N; ++i) {
-    //         rn(i) = pc.rn[i];
-    //     }
+        self.sc.X1 = ((&w*dt).cos() + (&rn/&w)*((&w*dt).sin())) * ((-&rn*dt).exp());
+        self.sc.X2 = ((&ones / &w) * (&w*dt).sin()) * ((-&rn*dt).exp());
+        self.sc.X3 = (&ones - &self.sc.X1) / (pc.pl * &w0.pow2());
 
-    //     const AA w0 = ( (pc.T/pc.pl) * ((n*PI*sc.div_pc_L).square())
-    //                     + (pc.E*I/pc.pl) * ((n*PI*sc.div_pc_L).square().square()) ).sqrt();
-    //     const float highest_freq = w0[N-1] / (2*PI);
-    //     if (highest_freq > fs/2.0) {
-    //         cout<<"BAD FREQ!  highest freq: "<<highest_freq;
-    //         cout<<"           Nyquist freq: "<<fs/2.0<<endl;
-    //     }
-    //     const AA w = (w0.square() - rn.square()).sqrt();
+        self.sc.Y1 = -(&w + &rn.pow2()/&w) * (&w*dt).sin() * (-&rn*dt).exp();
+        self.sc.Y2 = ((&w*dt).cos() - (&rn/&w)*((&w*dt).sin())) * (-&rn*dt).exp();
+        self.sc.Y3 = -&self.sc.Y1 / (pc.pl * &w0.pow2());
 
-    //     sc.X1 = ((w*dt).cos() + (rn/w)*((w*dt).sin())) * ((-rn*dt).exp());
-    //     sc.X2 = ((ones / w) * (w*dt).sin()) * ((-rn*dt).exp());
-    //     sc.X3 = (ones - sc.X1) / (pc.pl * w0.square());
-    //     //std::cout<<"X1"<<std::endl<<sc.X1<<std::endl;
-    //     //std::cout<<"X3"<<std::endl<<sc.X3<<std::endl;
+        self.sc.G = self.sc.sqrt_two_div_L as f32 * (pc.T * (n*PI*self.sc.div_pc_L) + pc.E*I*(n*PI*self.sc.div_pc_L).powi(3));
 
-    //     sc.Y1 = -(w + rn.square()/w) * (w*dt).sin() * (-rn*dt).exp();
-    //     sc.Y2 = ((w*dt).cos() - (rn/w)*((w*dt).sin())) * (-rn*dt).exp();
-    //     sc.Y3 = -sc.Y1 / (pc.pl * w0.square());
-
-    //     //std::cout<<"Y3"<<std::endl<<sc.Y3<<std::endl;
-
-    //     sc.G = sc.sqrt_two_div_L * (pc.T*(n*PI*sc.div_pc_L) + pc.E*I*(n*PI*sc.div_pc_L).cube());
-
-    //     inside_phi = n*PI*sc.div_pc_L;
-    //     vc.recache = true;
+        self.inside_phi = n*PI*self.sc.div_pc_L;
+        self.vc.recache = true;
     }
 
-    pub fn reset(&self) {
+    pub fn reset(&mut self) {
         // init everything, just to be safe
-        // cache_pc_c();
+        self.cache_pc_c();
 
         // plucks = 0;
 
@@ -230,13 +226,13 @@ pub struct StringPhysical {
 #[derive(Default)]
 #[allow(dead_code, non_snake_case)]
 pub struct StringConstants {
-    X1: Vec<f32>, // displacement AA (Eigen Array)
-    X2: Vec<f32>,
-    X3: Vec<f32>,
-    Y1: Vec<f32>, // velocity
-    Y2: Vec<f32>,
-    Y3: Vec<f32>,
-    G: Vec<f32>, // bridge
+    X1: Array1<f32>, // displacement
+    X2: Array1<f32>,
+    X3: Array1<f32>,
+    Y1: Array1<f32>, // velocity
+    Y2: Array1<f32>,
+    Y3: Array1<f32>,
+    G:  Array1<f32>, // bridge
     div_pc_L: f32,
     sqrt_two_div_L: f32,
 }
@@ -247,9 +243,9 @@ pub struct ViolinistCoefficients {
     x0: f32,
     x1: f32,
     x2: f32,
-    phix0: Vec<f32>, // position eigenvalues (AA)
-    phix1: Vec<f32>,
-    phix2: Vec<f32>,
+    phix0: Array1<f32>, // position eigenvalues
+    phix1: Array1<f32>,
+    phix2: Array1<f32>,
 
     //float D1old, D2old, D3old, D4old; // pluck and release
     //float D1, D2, D3, D4; // bow
@@ -273,8 +269,8 @@ pub struct ViolinistCoefficients {
 #[derive(Default)]
 #[allow(dead_code)]
 pub struct StringState {
-    a: Vec<f32>, // AA
-    ad: Vec<f32>,
+    a: Array1<f32>,
+    ad: Array1<f32>,
     slipstate: u32,
     actions: ActionType,
 }

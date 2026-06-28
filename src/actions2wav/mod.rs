@@ -28,7 +28,7 @@ pub fn run(args: &cli::actions2wav::Args) -> Result<(), Report> {
     // TBD: forces log file
     // TBD: string log files
 
-    let artifastring_instrument = ArtifastringInstrument::new(
+    let mut artifastring_instrument = ArtifastringInstrument::new(
         args.instrument_type,
         args.instrument_number,
         args.sample_rate
@@ -40,14 +40,14 @@ pub fn run(args: &cli::actions2wav::Args) -> Result<(), Report> {
         haptic_downsample_factor: args.haptic_downsample_factor,
         total_samples: 0
     };
-    play_file(&actions, &artifastring_instrument, &mut wav_file);
+    play_file(&actions, &mut artifastring_instrument, &mut wav_file);
 
     Ok(())
 }
 
 pub fn play_file(
     input: &[Action],
-    instrument: &ArtifastringInstrument,
+    instrument: &mut ArtifastringInstrument,
     wav_file: &mut MonoWav,
 ) {
     wav_file.total_samples = 0;

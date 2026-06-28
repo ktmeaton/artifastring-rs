@@ -143,8 +143,8 @@ impl ArtifastringInstrument {
     }
 
     // Stops all movement
-    pub fn reset(&self) {
-        self.strings.iter().for_each(|st| st.reset());
+    pub fn reset(&mut self) {
+        self.strings.iter_mut().for_each(|st| st.reset());
     }
 
     // Places finger on the string.
