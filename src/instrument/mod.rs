@@ -52,17 +52,19 @@ pub struct ArtifastringInstrument {
     pub instrument_number: InstrumentNumber,
     pub instrument_sample_rate: u32,
     pub strings: Vec<ArtifastringString>,
-    pub string_audio_lowpass_convolution: Vec<Option<ArtifastringConvolution>>,
-    pub string_force_lowpass_convolution: Vec<Option<ArtifastringConvolution>>,
-    pub string_audio_lowpass_input: Vec<Option<Vec<f32>>>,
-    pub string_force_lowpass_input: Vec<Option<Vec<f32>>>,
-    pub body_audio_convolution: Option<ArtifastringConvolution>,
-    pub body_force_convolution: Option<ArtifastringConvolution>,
+    pub string_audio_lowpass_convolution: Vec<ArtifastringConvolution>,
+    pub string_force_lowpass_convolution: Vec<ArtifastringConvolution>,
+    pub string_audio_lowpass_input: Vec<Vec<f32>>,
+    pub string_force_lowpass_input: Vec<Vec<f32>>,
+    pub body_audio_convolution: ArtifastringConvolution,
+    pub body_force_convolution: ArtifastringConvolution,
+    pub body_audio_input: Vec<f32>
 }
 
 impl ArtifastringInstrument {
 
     pub fn new(instrument_type: InstrumentType, instrument_number: InstrumentNumber, instrument_sample_rate: u32) -> Self {
+
         // Create the strings
         let strings: Vec<ArtifastringString> = (1..NUM_VIOLIN_STRINGS).map(|st| {
             ArtifastringString::new(
@@ -73,17 +75,58 @@ impl ArtifastringInstrument {
             )
         }).collect();
 
+        let string_audio_output = vec![vec![0.0 as f32; strings.len()]; strings.len()];
+        let _string_force_output = string_audio_output.clone();
+
+        // strings
+        let mut string_audio_lowpass_convolution = vec![];
+        let mut string_force_lowpass_convolution = vec![];
+        let mut string_audio_lowpass_input = vec![];
+        let mut string_force_lowpass_input = vec![];
+
+        // body
+        let body_audio_convolution;
+        let body_force_convolution;
+        //let body_audio_input;
+        // let body_force_lowpass_input;
+        // let body_force_input = vec![0.0; NORMAL_BUFFER_SIZE];
+
+        // let body_in;
+        // let body_out;
+        // let f_hold; // output of body convolution
+        // let f_hold_read_index: u32;
+
+        // float *bow_string_forces;
+        // float *bow_fft_output;
+        // float *bow_convolution_output;
+        // int bow_convolution_read_index;
+        // int bow_string;
+
+        // // fftwf_complex
+        // void *kernel_interim;
+        // void *body_interim;
+        // void *forces_interim;
+        // // fftwf_plan
+        // void *body_plan_f_p;
+        // void *body_plan_b_p;
+        // void *forces_plan_f_p;
+        // void *forces_plan_b_p;
+        // int forces_M;
+        // int body_M;
+
+        // float m_bridge_force_amplify;
+        // float m_bow_force_amplify;
+
+        // map empircally determined response and its transformed sample rate
+        // to the cached version at the new sample rate.
+        // typedef std::pair<const float*, int> resampledTDCacheKey;
+        // static std::map <resampledTDCacheKey, std::unique_ptr<float[]>> time_data_cache;
+        // static std::mutex cache_mtx;
+
+
         let _bow_string = 0;
 
         // FFT stuff
-
-        // Lowpass
-        let mut string_audio_lowpass_convolution = vec![None; strings.len()];
-        let mut string_force_lowpass_convolution = vec![None; strings.len()];
-        let mut string_audio_lowpass_input = vec![None; strings.len()];
-        let mut string_force_lowpass_input = vec![None; strings.len()];
-        //let mut body_audio_convolution;
-        //let mut body_force_convolution;
 
         strings.iter().enumerate().for_each(|(i, _)| {
             // let fs_multiply = 1;
@@ -107,11 +150,11 @@ impl ArtifastringInstrument {
             let convolution = ArtifastringConvolution::new(fs_multiply, lowpass_time_data, lowpass_num_taps);
             let input_buffer = convolution.get_input_buffer();
 
-            string_audio_lowpass_convolution[i] = Some(convolution.clone());
-            string_force_lowpass_convolution[i] = Some(convolution);
+            string_audio_lowpass_convolution.push(convolution.clone());
+            string_force_lowpass_convolution.push(convolution);
 
-            string_audio_lowpass_input[i] = Some(input_buffer.clone());
-            string_force_lowpass_input[i] = Some(input_buffer);
+            string_audio_lowpass_input.push(input_buffer.clone());
+            string_force_lowpass_input.push(input_buffer);
         });
 
         // body
@@ -124,9 +167,9 @@ impl ArtifastringInstrument {
         // resample_time_data(body_time_data, body_num_taps, instrument_sample_rate);
 
         let body_convolution = ArtifastringConvolution::new(1, body_time_data, body_num_taps);
-        let _body_audio_input = Some(body_convolution.get_input_buffer());
-        let body_audio_convolution = Some(body_convolution.clone());
-        let body_force_convolution  =Some(body_convolution);
+        let body_audio_input = body_convolution.get_input_buffer();
+        body_audio_convolution = body_convolution.clone();
+        body_force_convolution  = body_convolution;
 
         Self {
             instrument_type,
@@ -139,6 +182,7 @@ impl ArtifastringInstrument {
             string_force_lowpass_input,
             body_audio_convolution,
             body_force_convolution,
+            body_audio_input,
         }
     }
 
@@ -148,12 +192,17 @@ impl ArtifastringInstrument {
     }
 
     // Places finger on the string.
-    pub fn finger(&self, _command: &Action) {
+    pub fn finger(&mut self, command: &Action) {
+        if let Some(sn) = &command.string_number {
+            self.strings[sn.index()].finger(command);
+        }
     }
 
     // Plucks a string.
-    pub fn pluck(&self, _command: &Action) {
-
+    pub fn pluck(&mut self, command: &Action) {
+        if let Some(sn) = &command.string_number {
+            self.strings[sn.index()].pluck(command);
+        }
     }
 
     // Sets the bow's action.

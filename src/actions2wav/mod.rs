@@ -33,13 +33,7 @@ pub fn run(args: &cli::actions2wav::Args) -> Result<(), Report> {
         args.instrument_number,
         args.sample_rate
     );
-    let mut wav_file = MonoWav {
-        file_path: args.output.clone(),
-        byte_size: 4096,
-        sample_rate: args.sample_rate,
-        haptic_downsample_factor: args.haptic_downsample_factor,
-        total_samples: 0
-    };
+    let mut wav_file = MonoWav::new(args.output.clone(), 4096, args.sample_rate)?;
     play_file(&actions, &mut artifastring_instrument, &mut wav_file);
 
     Ok(())
@@ -79,7 +73,7 @@ pub fn wait_until(
     if delta >= 0 {
         let mut delta = delta as u32;
         delta = wav_file.haptic_downsample_factor * ( delta / wav_file.haptic_downsample_factor);
-        // short *array = wavfile->request_fill(delta);
+        let array = wav_file.request_fill(delta);
         // int unsafe = violin->wait_samples_forces(array, NULL, delta);        
         wav_file.total_samples += delta;
     } else {

@@ -1,8 +1,12 @@
 use std::f32::consts::PI;
 use ndarray::{arr1, Array1, s};
 use log::warn;
+use color_eyre::eyre::{eyre, Report, Result};
+use std::str::FromStr;
+
 
 use crate::{
+    Action,
     ActionType,
     constants::*,
     constants::strings::strings_violin::VIOLIN_PARAMS, 
@@ -34,14 +38,12 @@ impl ArtifastringString {
         string_number: u32
     ) -> Self {
 
-        // protected attributes
         let pc = match instrument_type {
             InstrumentType::Violin => VIOLIN_PARAMS[instrument_type.index()][instrument_number.index()].clone(),
             _ => todo!(),
         };
         #[allow(non_snake_case)]
         let N = pc.N as usize;
-        // Resize delays
 
         let _tick_output_force: f32;
         let _num_friction_skip_over_stick: u32;
@@ -53,8 +55,9 @@ impl ArtifastringString {
         let ss = StringState::default();
         let va = ViolinistActions::default();
 
-        // let inv_a: Eigen::Matrix3f;
-        // let inv_A_r: Eigen::Matrix2f;
+        let _inv_a = arr1(&vec![vec![0.0; 3]; 3]);
+        #[allow(non_snake_case)]
+        let _inv_A_r = arr1(&vec![vec![0.0; 2]; 2]);
 
         let _plucks: u32;
         let fs_multiplier = FS_MULTIPLICATION_FACTOR[instrument_type.index()][string_number as usize];
@@ -66,11 +69,11 @@ impl ArtifastringString {
 
         // to handle the memory alignment once
         let _ah = arr1(&vec![0.0; N]);
-        // AA adh;
-        // AA fn;
-        //let n = arr1(&vec![0.0; N]);
+        let _adh = arr1(&vec![0.0; N]);
+        let _fn = arr1(&vec![0.0; N]);
+
         let inside_phi = arr1(&vec![0.0; N]);
-        let n = arr1(&(1..=64).map(|i| i as f32).collect::<Vec<f32>>());
+        let n = arr1(&(1..=N).map(|i| i as f32).collect::<Vec<f32>>());
 
         let mut string = Self{ N, n, fs_multiplier, pc, sc, vc, ss, va, fs, dt, inside_phi};
         string.set_physical_constants();
@@ -98,20 +101,17 @@ impl ArtifastringString {
 
         self.ss.a = arr1(&vec![0.0; N]);
         self.ss.ad = arr1(&vec![0.0; N]);
-        // ah.resize(N);
-        // adh.resize(N);
-        // fn.resize(N);
+        // self.ah = arr1(&vec![0.0; N]);
+        // self.adh = arr1(&vec![0.0; N]);
+        // self.fn = arr1(&vec![0.0; N]);
 
-        // n.resize(N);
-        // inside_phi.resize(N);
-        // n = AA::LinSpaced(Eigen::Sequential, N, 1, N);
-
+         self.inside_phi = arr1(&vec![0.0; N]);
+         self.n = arr1(&(1..=N).map(|i| i as f32).collect::<Vec<f32>>());
     }
 
     pub fn set_physical_constants(&mut self) {
         self.set_N();
-        self.cache_pc_c();
-        self.vc.recache = true;    
+        self.cache_pc_c();  
     }
 
     pub fn cache_pc_c(&mut self) {
@@ -176,6 +176,33 @@ impl ArtifastringString {
         self.ss = StringState::default();
 
         // let debug_ticks = 0;
+    }
+
+    pub fn finger(&mut self, command: &Action){
+        if let Some(ratio_from_nut) = &command.position && let Some(force) = &command.force {
+            if *ratio_from_nut == 0.0 {
+                self.va.finger_position = 0.;
+            } else {
+                self.va.finger_position = self.pc.L * (1.0 - ratio_from_nut);
+            }
+            self.va.Kf = force * K_FINGER;
+            self.vc.recache = true;
+        } else {
+            warn!("Finger command is invalid: {:?}", &command);
+        }
+    }
+
+    pub fn pluck(&mut self, command: &Action){
+        if let Some(ratio_from_bridge) = &command.position && let Some(pull_distance) = &command.force {
+            self.va.bow_pluck_position = self.pc.L * ratio_from_bridge;
+            self.ss.actions = ActionType::Pluck;
+            self.vc.pluck_samples_remaining = (PLUCK_SECONDS * self.fs) as u32;
+            self.vc.y_pluck = 0.0;
+            self.vc.y_pluck_target = pull_distance * PLUCK_DISPLACEMENT;
+            self.vc.recache = true;
+        } else {
+            warn!("Pluck command is invalid: {:?}", &command);
+        }
     }
 }
 
@@ -269,4 +296,40 @@ pub struct ViolinistActions {
     va: f32,  // bow acceleration, per dt (unit of time)
     vb_target: f32, // target bow velocity, used in acceleration
     Kf: f32,
+}
+
+
+#[derive(Debug)]
+pub enum StringNumber {
+    One,
+    Two,
+    Three,
+    Four
+}
+
+impl FromStr for StringNumber {
+    type Err = Report;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let action = match s {
+            "0" => Self::One,
+            "1" => Self::Two,
+            "2" => Self::Three,
+            "3" => Self::Four,
+            _ => Err(eyre!("Failed to convert '{s}' to string number"))?,
+        };
+
+        Ok(action)
+    }
+}
+
+impl StringNumber {
+    pub fn index(&self) -> usize {
+        match &self {
+            StringNumber::One => 0,
+            StringNumber::Two  => 1,
+            StringNumber::Three  => 2,
+            StringNumber::Four => 3,
+        }
+    }
 }

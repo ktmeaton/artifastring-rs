@@ -44,30 +44,6 @@ impl FromStr for ActionType {
 }
 
 #[derive(Debug)]
-pub enum StringNumber {
-    One,
-    Two,
-    Three,
-    Four
-}
-
-impl FromStr for StringNumber {
-    type Err = Report;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let action = match s {
-            "0" => Self::One,
-            "1" => Self::Two,
-            "2" => Self::Three,
-            "3" => Self::Four,
-            _ => Err(eyre!("Failed to convert '{s}' to string number"))?,
-        };
-
-        Ok(action)
-    }
-}
-
-#[derive(Debug)]
 #[allow(dead_code)]
 pub struct Action {
     action_type: ActionType,
@@ -107,6 +83,14 @@ impl Action {
             ActionType::Finger | ActionType::Pluck | ActionType::Bow | ActionType::BowAccelerate => Some(a[3].parse::<f32>()?),
             _ => None,
         };
+
+        // Validate
+        if let Some(p) = position {
+            if p < 0.0 || p > 1.0 {
+                return Err(eyre!("Position must be between 0.0 and 1.0"))
+            }
+        }
+
         let force = match action_type {
             ActionType::Pluck | ActionType::Bow | ActionType::BowAccelerate => Some(a[4].parse::<f32>()?),
             _ => None,

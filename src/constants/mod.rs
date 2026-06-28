@@ -11,12 +11,12 @@ pub const FS_MULTIPLICATION_FACTOR: [[u32; 4]; 3] = [
     [1,1,1,2], // Cello
 ];
 
-pub const NORMAL_BUFFER_SIZE: u32 = 441;
+pub const NORMAL_BUFFER_SIZE: usize = 441;
 
 // // pluck constants, estimated from listening
 // const PLUCK_VELOCITY: f32 = 0.1; // in m/s
-// const PLUCK_DISPLACEMENT: f32 = 0.005; // in m
-// const PLUCK_SECONDS: f32 = 0.1; // in seconds
+pub const PLUCK_DISPLACEMENT: f32 = 0.005; // in m
+pub const PLUCK_SECONDS: f32 = 0.1; // in seconds
 
 pub const K_FINGER: f32 = 1e5;
 // const R_FINGER: f32 = 30.0;
