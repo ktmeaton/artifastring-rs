@@ -1,3 +1,6 @@
+use std::f32::consts::PI;
+use ndarray::{arr1, Array1};
+
 use crate::{
     ActionType,
     constants::*,
@@ -6,7 +9,10 @@ use crate::{
     InstrumentNumber,
 };
 
+#[allow(non_snake_case)]
 pub struct ArtifastringString {
+    pub N: usize,
+    pub n: Array1<f32>,
     pub fs_multiplier: u32,
     pub pc: StringPhysical,
     pub sc: StringConstants,
@@ -28,15 +34,15 @@ impl ArtifastringString {
             InstrumentType::Violin => VIOLIN_PARAMS[instrument_type.index()][instrument_number.index()].clone(),
             _ => todo!(),
         };
-        // originally capitalized N
-        let _n = pc.n as usize;
+        #[allow(non_snake_case)]
+        let N = pc.N as usize;
 
         let _tick_output_force: f32;
         let _num_friction_skip_over_stick: u32;
         let _debug_ticks: u32;
-        let _debug_string_num: u32;
+        let _debug_string_num = string_number;
     
-        let sc =  StringConstants::default();
+        let sc = StringConstants::default();
         let vc = ViolinistCoefficients::default();
         let ss = StringState::default();
         let va = ViolinistActions::default();
@@ -53,34 +59,38 @@ impl ArtifastringString {
         let _force_samples: [f32; (NORMAL_BUFFER_SIZE*3) as usize];
 
         // to handle the memory alignment once
-        // AA ah;
+        // let ah = vec![0.0; N]; // AA
         // AA adh;
         // AA fn;
-        // AA n;
+        let n = arr1(&vec![0.0; N]); // AA
         // AA inside_phi;
 
-        let mut string = Self{ fs_multiplier, pc, sc, vc, ss, va};
+        let mut string = Self{ N, n, fs_multiplier, pc, sc, vc, ss, va};
         string.set_physical_constants();
+
+        // srand( time(NULL) );
+        string.reset();
 
         return string;
     }
 
-    pub fn set_n(&mut self){
-        let n = self.pc.n as usize;
-        self.sc.x1.resize(n, 0.0);
-        self.sc.x2.resize(n, 0.0);
-        self.sc.x3.resize(n, 0.0);
-        self.sc.y1.resize(n, 0.0);
-        self.sc.y2.resize(n, 0.0);
-        self.sc.y3.resize(n, 0.0);
-        self.sc.g.resize(n, 0.0);
+    #[allow(non_snake_case)]
+    pub fn set_N(&mut self){
+        let N = self.N;
+        self.sc.X1.resize(N, 0.0);
+        self.sc.X2.resize(N, 0.0);
+        self.sc.X3.resize(N, 0.0);
+        self.sc.Y1.resize(N, 0.0);
+        self.sc.Y2.resize(N, 0.0);
+        self.sc.Y3.resize(N, 0.0);
+        self.sc.G.resize(N, 0.0);
 
-        self.vc.phix0.resize(n, 0.0);
-        self.vc.phix1.resize(n, 0.0);
-        self.vc.phix2.resize(n, 0.0);
+        self.vc.phix0.resize(N, 0.0);
+        self.vc.phix1.resize(N, 0.0);
+        self.vc.phix2.resize(N, 0.0);
 
-        self.ss.a.resize(n, 0.0);
-        self.ss.ad.resize(n, 0.0);
+        self.ss.a.resize(N, 0.0);
+        self.ss.ad.resize(N, 0.0);
         // ah.resize(N);
         // adh.resize(N);
         // fn.resize(N);
@@ -91,20 +101,34 @@ impl ArtifastringString {
     }
 
     pub fn set_physical_constants(&mut self) {
-        self.set_n();
+        self.set_N();
         self.cache_pc_c();
         self.vc.recache = true;    
     }
 
     pub fn cache_pc_c(&mut self) {
 
-        self.sc.div_pc_l = 1.0 / self.pc.l;
-    //     sc.sqrt_two_div_L = sqrt( 2.0f / pc.L);
-    //     const float I = PI * pc.d*pc.d*pc.d*pc.d / 64.0f;
+        self.sc.div_pc_L = 1.0 / self.pc.L;
+        self.sc.sqrt_two_div_L = ( 2.0 / self.pc.L).sqrt();
+        #[allow(non_snake_case)]
+        let I: f32 = PI * self.pc.d * self.pc.d * self.pc.d * self.pc.d / 64.0;        
+        let N = self.N;
+        let ones = vec![1.0; N];
+        let rn = self.pc.rn;
+        let n = self.n.clone();
+        let pc = &self.pc;
+        let sc = &self.sc;
 
-    //     AA ones(N);
-    //     ones.resize(N);
-    //     ones.setOnes();
+
+        let w0 = (
+            (pc.T/pc.pl) * (n.clone()*PI*sc.div_pc_L).iter().map(|x| x * x).collect::<Array1<f32>>()
+            + (pc.E*I/pc.pl) * (n*PI*sc.div_pc_L).iter().map(|x| x * x * x).collect::<Array1<f32>>()
+        ).iter().map(|x| x.sqrt()).collect::<Array1<f32>>();
+
+        // let w0 = ( 
+        // (pc.T/pc.pl) * ((n*PI*sc.div_pc_L).square())
+        //            + (pc.E*I/pc.pl) * ((n*PI*sc.div_pc_L).square().square()) ).sqrt();
+
 
     //     AA rn(N);
     //     rn.resize(N);
@@ -140,22 +164,55 @@ impl ArtifastringString {
     }
 
     pub fn reset(&self) {
-        todo!();
+        // init everything, just to be safe
+        // cache_pc_c();
+
+        // plucks = 0;
+
+        // vc.x0  = 0.0f;
+        // vc.x1  = 0.0f;
+        // vc.x2  = 0.0f;
+        // vc.y_pluck = 0.0f;
+        // vc.y_pluck_target = 0.0f;
+        // va.Fb  = 0.0f;
+        // va.vb  = 0.0f;
+        // va.vb_target = 0.0f;
+        // va.va = 0.0f;
+        // vc.pluck_samples_remaining = 0;
+        // vc.recache = true;
+
+        // va.finger_position = 0.0f;
+        // va.bow_pluck_position = 0.0f;
+        // va.Kf = K_FINGER;
+
+        // vc.K0 = 0.0f;
+        // vc.R0 = 0.0f;
+        // vc.K2 = 0.0f;
+        // vc.K2 = 0.0f;
+
+        // ss.actions = OFF;
+
+        // ss.a.setZero();
+        // ss.ad.setZero();
+        // ss.slipstate = 0;
+
+        // debug_ticks = 0;
     }
 }
 
 #[derive(Clone)]
+#[allow(non_snake_case)]
 pub struct StringPhysical {
      // Tension (N)
-    pub t: f32,
+    pub T: f32,
     // Length (m)
-    pub l: f32,
+    pub L: f32,
     // Diameter (m)
     pub d: f32,
     // Linear Density (kg/m)
     pub pl: f32,
     // Young's elastic modulus
-    pub e: f32,
+    pub E: f32,
     // Coefficient of static friction
     pub mu_s: f32,
     // Coefficient of dynamic friction
@@ -165,27 +222,27 @@ pub struct StringPhysical {
     // Minimum sum-of-squares amplitude to maintain processing
     pub cutoff: f32,
     // Number of modes for this string (should be a multiple of 4 for SSE, or 8 for AVX)
-    pub n: u32,
+    pub N: u32,
     // Array of modal decays
     pub rn: [f32; 128]
 }
 
 #[derive(Default)]
-#[allow(dead_code)]
+#[allow(dead_code, non_snake_case)]
 pub struct StringConstants {
-    x1: Vec<f32>, // displacement AA (Eigen Array)
-    x2: Vec<f32>,
-    x3: Vec<f32>,
-    y1: Vec<f32>, // velocity
-    y2: Vec<f32>,
-    y3: Vec<f32>,
-    g: Vec<f32>, // bridge
-    div_pc_l: f32,
-    sqrt_two_div_l: f32,
+    X1: Vec<f32>, // displacement AA (Eigen Array)
+    X2: Vec<f32>,
+    X3: Vec<f32>,
+    Y1: Vec<f32>, // velocity
+    Y2: Vec<f32>,
+    Y3: Vec<f32>,
+    G: Vec<f32>, // bridge
+    div_pc_L: f32,
+    sqrt_two_div_L: f32,
 }
 
 #[derive(Default)]
-#[allow(dead_code)]
+#[allow(dead_code, non_snake_case)]
 pub struct ViolinistCoefficients {
     x0: f32,
     x1: f32,
@@ -201,12 +258,12 @@ pub struct ViolinistCoefficients {
     //float D8, D9, D10, D11; // pluck release
 
     // extra "actions"
-    k0: f32,
-    k1: f32,
-    k2: f32,
-    r0: f32,
-    r1: f32,
-    r2: f32,
+    K0: f32,
+    K1: f32,
+    K2: f32,
+    R0: f32,
+    R1: f32,
+    R2: f32,
     y_pluck: f32, // for pluck displacement
     y_pluck_target: f32,
     pluck_samples_remaining: u32,
@@ -223,14 +280,14 @@ pub struct StringState {
 }
 
 #[derive(Default)]
-#[allow(dead_code)]
+#[allow(dead_code, non_snake_case)]
 pub struct ViolinistActions {
     bow_pluck_position: f32,  // bow/pluck position
     finger_position: f32,  // finger position
-    fb: f32,  // bow force
+    Fb: f32,  // bow force
     vb: f32,  // bow velocity
     // iffy actions
     va: f32,  // bow acceleration, per dt (unit of time)
     vb_target: f32, // target bow velocity, used in acceleration
-    kf: f32,
+    Kf: f32,
 }
