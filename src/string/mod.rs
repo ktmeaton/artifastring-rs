@@ -354,11 +354,20 @@ impl ArtifastringString {
         }
     }
 
-    pub fn fill_buffer_forces(&mut self, _input: &[f32], _num_samples: u32) -> Result<(), Report>{
+    pub fn fill_buffer_forces(&mut self, num_samples: u32) -> Result<Vec<u8>, Report>{
         if self.vc.recache {
             self.cache_pa_c()?;
         }
-        Ok(())
+
+        let mut buffer = Vec::new();
+        // write sine wave
+        for t in (0 .. num_samples).map(|x| x as f32 / 44100.0) {
+            let sample = (t * 440.0 * 2.0 * PI).sin();
+            let amplitude = i16::MAX as f32;
+            let data = ((sample * amplitude) as i16).to_le_bytes();
+            buffer.extend_from_slice(&data);
+        }
+        Ok(buffer)
     }
 }
 

@@ -1,6 +1,7 @@
 use clap::{ValueEnum};
+use color_eyre::eyre::{Report, Result};
 
-use crate::{Action, ArtifastringString, ArtifastringConvolution};
+use crate::{Action, ArtifastringString, ArtifastringConvolution, StringNumber};
 use crate::{constants::*, constants::lowpass::*, constants::body::*};
 use crate::{MonoWav};
 
@@ -59,7 +60,8 @@ pub struct ArtifastringInstrument {
     pub string_force_lowpass_input: Vec<Vec<f32>>,
     pub body_audio_convolution: ArtifastringConvolution,
     pub body_force_convolution: ArtifastringConvolution,
-    pub body_audio_input: Vec<f32>
+    pub body_audio_input: Vec<f32>,
+    pub bow_string: StringNumber,
 }
 
 impl ArtifastringInstrument {
@@ -125,7 +127,7 @@ impl ArtifastringInstrument {
         // static std::mutex cache_mtx;
 
 
-        let _bow_string = 0;
+        let bow_string = StringNumber::One;
 
         // FFT stuff
 
@@ -184,6 +186,7 @@ impl ArtifastringInstrument {
             body_audio_convolution,
             body_force_convolution,
             body_audio_input,
+            bow_string,
         }
     }
 
@@ -221,7 +224,7 @@ impl ArtifastringInstrument {
         todo!();
     }
 
-    pub fn handle_buffer(&mut self, _mono_wav: &mut MonoWav, num_samples: u32){
+    pub fn handle_buffer(&mut self, mono_wav: &mut MonoWav, num_samples: u32) -> Result<(), Report> {
         // FIXME: maybe not necessary?  especially force?
         // self.strings.iter().for_each(|st| {
         //     let st_i = st.string_number as usize;
@@ -230,15 +233,23 @@ impl ArtifastringInstrument {
         // })
 
         // calculate string buffers
-        self.strings.iter_mut().enumerate().for_each(|(i, st)| {
-            let input = &self.string_audio_lowpass_input[i];
+        for (_i, st) in self.strings.iter_mut().enumerate() {
+            //let buffer = &self.string_audio_lowpass_input[i];
             // todo!()
-            st.fill_buffer_forces(input, num_samples).unwrap();
-        });
+            let buffer = st.fill_buffer_forces(num_samples)?;
+            mono_wav.data = buffer;
+            mono_wav.write_file()?;
+            // self.string_audio_lowpass_input[i] = st.fill_buffer_forces(num_samples)?;
+        }
+
+        //todo!();
+
+        Ok(())
     }
 
-    pub fn wait_samples_forces(&mut self, mono_wav: &mut MonoWav, num_samples: u32)  {
-        self.handle_buffer(mono_wav, num_samples)
+    pub fn wait_samples_forces(&mut self, mono_wav: &mut MonoWav, num_samples: u32) -> Result<(), Report>  {
+        self.handle_buffer(mono_wav, num_samples)?;
+        Ok(())
     }
 
     pub fn wait_samples_forces_python(&self) -> u32 { todo!(); }

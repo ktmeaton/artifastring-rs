@@ -24,18 +24,17 @@ impl MonoWav {
         let bits_per_sample: u16 = 16;  // 16=16-bit mono, 32=16-bit stereo
         let total_samples = 0;
 
-        let mut monowav = Self {
+        Self {
             num_channels,
             bits_per_sample,
             sample_rate,
             data,
             total_samples
-        };
+        }
 
-        monowav.write_data();
-        monowav.write_file().unwrap();
+        // monowav.write_data();
+        // monowav.write_file().unwrap();
         //prep_wav_file();
-        return monowav
 
     }
 

@@ -34,7 +34,7 @@ pub fn run(args: &cli::actions2wav::Args) -> Result<(), Report> {
         args.sample_rate
     );
     let mut mono_wav = MonoWav::new();
-    play_file(&actions, &mut artifastring_instrument, &mut mono_wav);
+    play_file(&actions, &mut artifastring_instrument, &mut mono_wav)?;
 
     Ok(())
 }
@@ -43,11 +43,11 @@ pub fn play_file(
     input: &[Action],
     instrument: &mut ArtifastringInstrument,
     mono_wav: &mut MonoWav,
-) {
+) -> Result<(), Report> {
     mono_wav.total_samples = 0;
 
-    input.iter().for_each(|command| {
-        wait_until(instrument, mono_wav, command);
+    for command in input.iter() {
+        wait_until(instrument, mono_wav, command)?;
         match command.action_type {
             ActionType::Release       => instrument.reset(),
             ActionType::Finger        => instrument.finger(command),
@@ -57,26 +57,28 @@ pub fn play_file(
             ActionType::Wait          => (),
             ActionType::Off           => todo!(),
         }
-    });
+    }
     // delete violin
     // delete mono_wav
+    Ok(())
 }
 
-pub fn wait_until(
+pub fn wait_until (
     instrument: &mut ArtifastringInstrument,
     mono_wav: &mut MonoWav,
     command: &Action,
-)
+) -> Result<(), Report>
 {
     println!("{command:?}");
     let delta = (command.seconds * (mono_wav.sample_rate as f32 ) - (mono_wav.total_samples as f32)) as i32;
     if delta >= 0 {
-        instrument.wait_samples_forces(mono_wav, delta as u32);        
+        instrument.wait_samples_forces(mono_wav, delta as u32)?;        
         mono_wav.total_samples += delta as u32;
     } else {
         println!("ERROR: going back in time!");
         // TBD: more logging
     }
+    Ok(())
     //println!("until: {}, delta: {delta}, total_samples: {}", command.seconds, mono_wav.total_samples);
 }
 
