@@ -1,5 +1,5 @@
 use std::f32::consts::PI;
-use ndarray::{arr1, Array1, s};
+use ndarray::{arr1, Array1};
 use log::warn;
 use color_eyre::eyre::{eyre, Report, Result};
 use std::str::FromStr;
@@ -16,6 +16,7 @@ use crate::{
 
 #[allow(non_snake_case)]
 pub struct ArtifastringString {
+    pub string_number: u32,
     pub N: usize,
     pub n: Array1<f32>,
     pub fs_multiplier: u32,
@@ -75,7 +76,7 @@ impl ArtifastringString {
         let inside_phi = arr1(&vec![0.0; N]);
         let n = arr1(&(1..=N).map(|i| i as f32).collect::<Vec<f32>>());
 
-        let mut string = Self{ N, n, fs_multiplier, pc, sc, vc, ss, va, fs, dt, inside_phi};
+        let mut string = Self{ string_number, N, n, fs_multiplier, pc, sc, vc, ss, va, fs, dt, inside_phi};
         string.set_physical_constants();
 
         // srand( time(NULL) );
@@ -162,6 +163,110 @@ impl ArtifastringString {
         self.vc.recache = true;
     }
 
+    pub fn cache_pa_c(&mut self) {
+        self.setup_vc_positions();
+
+        self.vc.phix0 = self.sc.sqrt_two_div_L * ( self.vc.x0*&self.inside_phi ).sin();
+        self.vc.phix1 = self.sc.sqrt_two_div_L * ( self.vc.x1*&self.inside_phi ).sin();
+
+        #[allow(non_snake_case)]
+        let _A00 = (&self.sc.X3 * &self.vc.phix0 * &self.vc.phix0).sum();
+        #[allow(non_snake_case)]
+        let A01 = (&self.sc.X3 * &self.vc.phix0 * &self.vc.phix1).sum();
+        #[allow(non_snake_case)]
+        let A11 = (&self.sc.X3 * &self.vc.phix1 * &self.vc.phix1).sum();
+        #[allow(non_snake_case)]
+        let B00 = (&self.sc.Y3 * &self.vc.phix0 * &self.vc.phix0).sum();
+        #[allow(non_snake_case)]
+        let B01 = (&self.sc.Y3 * &self.vc.phix0 * &self.vc.phix1).sum();
+        #[allow(non_snake_case)]
+        let B11 = (&self.sc.Y3 * &self.vc.phix1 * &self.vc.phix1).sum();
+
+        match self.ss.actions {
+            ActionType::Bow => {
+
+                // bow coefficients
+                #[allow(non_snake_case)]
+                let L1 = 1.0 / ((B00*B11 - B01*B01)*self.vc.R1 + (A11*B00 - A01*B01)*self.vc.K1 + B00);
+                self.vc.D1 = (B11*self.vc.R1 + A11*self.vc.K1 + 1.0)*L1;
+                self.vc.D4 = 0.5 / self.vc.D1;
+                self.vc.D2 = B01 * self.vc.K1 * L1;
+                self.vc.D3 = B01 * self.vc.R1 * L1;
+
+                // finger-during-bowing coefficients
+                let L2 = -1.0 / (B11*self.vc.R1 + A11*self.vc.K1 + 1.0);
+                self.vc.D5 = (B01*self.vc.R1 + A01*self.vc.K1) * L2;
+                self.vc.D6 = self.vc.R1 * L2;
+                self.vc.D7 = self.vc.K1 * L2;
+            },
+            ActionType::Pluck => {
+                self.vc.phix2 = self.sc.sqrt_two_div_L * ( self.vc.x2*&self.inside_phi ).sin();
+                let A02 = (&self.sc.X3 * &self.vc.phix0 * &self.vc.phix2).sum();
+                let A12 = (&self.sc.X3 * &self.vc.phix1 * &self.vc.phix2).sum();
+                let A22 = (&self.sc.X3 * &self.vc.phix2 * &self.vc.phix2).sum();
+
+                // const float B02 = (sc.Y3 * vc.phix0 * vc.phix2).sum();
+                // const float B12 = (sc.Y3 * vc.phix1 * vc.phix2).sum();
+                // const float B22 = (sc.Y3 * vc.phix2 * vc.phix2).sum();
+
+                // Eigen::Matrix3f matrix_A;
+                // matrix_A <<
+                //         B00*vc.R0 + A00*vc.K0 + 1.0f, B01*vc.R0 + A01*vc.K0,        B02*vc.R0 + A02*vc.K0,
+                //             B01*vc.R1 + A01*vc.K1,        B11*vc.R1 + A11*vc.K1 + 1.0f, B12*vc.R1 + A12*vc.K1,
+                //             B02*vc.R2 + A02*vc.K2,        B12*vc.R2 + A12*vc.K2,        B22*vc.R2 + A22*vc.K2 + 1.0f;
+                // //qr.compute(
+                // //    matrix_A);
+
+                // inv_A = matrix_A.inverse();
+            }
+            _ => (),
+        }
+
+        todo!();
+    }
+
+    pub fn setup_vc_positions(&mut self)
+    {
+        self.vc.x1 = self.va.finger_position;
+        self.vc.K1 = self.va.Kf;
+        self.vc.R1 = R_FINGER * (self.va.Kf / K_FINGER);
+
+        match self.ss.actions {
+            ActionType::Bow => {
+                self.vc.x0 = self.va.bow_pluck_position;
+                self.vc.x2 = 0.0;
+            },
+            ActionType::Release => {
+                self.vc.x2 = 0.0;
+                self.vc.K2 = 0.0;
+                self.vc.R2 = 0.0;
+                if self.va.finger_position == 0.0 {
+                    self.vc.x0 = 0.0;
+                    self.vc.K0 = 0.0;
+                    self.vc.R0 = 0.0;
+                } else {
+                    self.vc.K0 = self.vc.K1;
+                    self.vc.R0 = self.vc.R1;
+                    if self.va.finger_position < self.pc.L - FINGER_WIDTH {
+                        self.vc.x0 = self.va.finger_position + FINGER_WIDTH;
+                    } else {
+                        let remaining_string = self.pc.L - self.va.finger_position;
+                        self.vc.x0 = self.va.finger_position + 0.5 *remaining_string;
+                    }
+                }   
+            },
+            ActionType::Pluck => {
+                self.vc.x0 = self.va.bow_pluck_position;
+                self.vc.K0 = K_PLUCK;
+                self.vc.R0 = R_PLUCK;
+                self.vc.x2 = self.va.bow_pluck_position + PLUCK_WIDTH;
+                self.vc.K2 = K_PLUCK;
+                self.vc.R2 = R_PLUCK;
+            }
+            _ => (),
+        }
+    }
+
     pub fn reset(&mut self) {
         // init everything, just to be safe
         self.cache_pc_c();
@@ -202,6 +307,12 @@ impl ArtifastringString {
             self.vc.recache = true;
         } else {
             warn!("Pluck command is invalid: {:?}", &command);
+        }
+    }
+
+    pub fn fill_buffer_forces(&mut self, _input: &[f32], _num_samples: u32){
+        if self.vc.recache {
+            self.cache_pa_c();
         }
     }
 }
@@ -258,10 +369,23 @@ pub struct ViolinistCoefficients {
     phix2: Array1<f32>,
 
     //float D1old, D2old, D3old, D4old; // pluck and release
-    //float D1, D2, D3, D4; // bow
-    //float D5, D6, D7; // finger during bowing
 
-    //float D8, D9, D10, D11; // pluck release
+    // bow
+    D1: f32,
+    D2: f32,
+    D3: f32,
+    D4: f32,
+
+    // finger during bowing
+    D5: f32,
+    D6: f32,
+    D7: f32,
+    
+    // pluck release
+    D8: f32,
+    D9: f32,
+    D10: f32,
+    D11: f32,
 
     // extra "actions"
     K0: f32,

@@ -2,6 +2,7 @@ use clap::{ValueEnum};
 
 use crate::{Action, ArtifastringString, ArtifastringConvolution};
 use crate::{constants::*, constants::lowpass::*, constants::body::*};
+use crate::{MonoWav};
 
 pub const ARTIFASTRING_INSTRUMENT_SAMPLE_RATE: u32 = 44100;
 pub const HAPTIC_DOWNSAMPLE_FACTOR: u32 = 1;
@@ -148,13 +149,13 @@ impl ArtifastringInstrument {
             // resample_time_data(lowpass_time_data, lowpass_num_taps, instrument_sample_rate);
 
             let convolution = ArtifastringConvolution::new(fs_multiply, lowpass_time_data, lowpass_num_taps);
-            let input_buffer = convolution.get_input_buffer();
+            let input_buffer = convolution.get_input_buffer().to_vec();
 
             string_audio_lowpass_convolution.push(convolution.clone());
             string_force_lowpass_convolution.push(convolution);
 
-            string_audio_lowpass_input.push(input_buffer.clone());
-            string_force_lowpass_input.push(input_buffer);
+            string_audio_lowpass_input.push(input_buffer.to_vec());
+            string_force_lowpass_input.push(input_buffer.to_vec());
         });
 
         // body
@@ -167,7 +168,7 @@ impl ArtifastringInstrument {
         // resample_time_data(body_time_data, body_num_taps, instrument_sample_rate);
 
         let body_convolution = ArtifastringConvolution::new(1, body_time_data, body_num_taps);
-        let body_audio_input = body_convolution.get_input_buffer();
+        let body_audio_input = body_convolution.get_input_buffer().to_vec();
         body_audio_convolution = body_convolution.clone();
         body_force_convolution  = body_convolution;
 
@@ -220,7 +221,24 @@ impl ArtifastringInstrument {
         todo!();
     }
 
-    pub fn wait_samples_forces(&self) -> u32 { todo!(); }
+    pub fn handle_buffer(&mut self, _mono_wav: &mut MonoWav, num_samples: u32){
+        // FIXME: maybe not necessary?  especially force?
+        // self.strings.iter().for_each(|st| {
+        //     let st_i = st.string_number as usize;
+        //     self.string_audio_lowpass_convolution[st_i].clear_input_buffer();
+        //     self.string_force_lowpass_convolution[st_i].clear_input_buffer();
+        // })
+
+        // calculate string buffers
+        self.strings.iter_mut().enumerate().for_each(|(i, st)| {
+            let input = &self.string_audio_lowpass_input[i];
+            st.fill_buffer_forces(input, num_samples);
+        })
+    }
+
+    pub fn wait_samples_forces(&mut self, mono_wav: &mut MonoWav, num_samples: u32)  {
+        self.handle_buffer(mono_wav, num_samples)
+    }
 
     pub fn wait_samples_forces_python(&self) -> u32 { todo!(); }
 

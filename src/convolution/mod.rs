@@ -1,6 +1,6 @@
 #[derive(Clone)]
 pub struct ArtifastringConvolution {
-
+    fft_input: Vec<f32>,
 }
 
 impl ArtifastringConvolution {
@@ -9,13 +9,17 @@ impl ArtifastringConvolution {
         _lowpass_time_data: Vec<f32>,
         _lowpass_num_taps: u32
     ) -> Self {
-        Self{}
+        let fft_input = Vec::new();
+    
+        Self {fft_input}
     }
 
-    pub fn get_input_buffer(&self) -> Vec<f32> {
-        // return fft_input;
-        //  fft_input = (float*)fftwf_malloc(sizeof(float) * convolution_size);
-        [5.0].to_vec()
+    pub fn clear_input_buffer(&self) {
+        todo!()
+    }
+
+    pub fn get_input_buffer(&self) -> &Vec<f32> {
+        return &self.fft_input;
     }
 }
 // (int fs_multiply_get,
