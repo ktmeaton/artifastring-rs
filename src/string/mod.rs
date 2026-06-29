@@ -1,5 +1,6 @@
 use std::f32::consts::PI;
-use ndarray::{arr1, Array1};
+use ndarray::{arr1, Array1}; 
+use nalgebra::{Matrix3};
 use log::warn;
 use color_eyre::eyre::{eyre, Report, Result};
 use std::str::FromStr;
@@ -28,6 +29,7 @@ pub struct ArtifastringString {
     pub fs: f32,
     pub dt: f32,
     pub inside_phi: Array1<f32>,
+    pub inv_A: Matrix3<f32>,
 }
 
 
@@ -56,9 +58,9 @@ impl ArtifastringString {
         let ss = StringState::default();
         let va = ViolinistActions::default();
 
-        let _inv_a = arr1(&vec![vec![0.0; 3]; 3]);
         #[allow(non_snake_case)]
-        let _inv_A_r = arr1(&vec![vec![0.0; 2]; 2]);
+        let inv_A = Matrix3::<f32>::zeros();
+        // let _inv_A_r = Matrix2::<f32>::zeros();
 
         let _plucks: u32;
         let fs_multiplier = FS_MULTIPLICATION_FACTOR[instrument_type.index()][string_number as usize];
@@ -76,7 +78,7 @@ impl ArtifastringString {
         let inside_phi = arr1(&vec![0.0; N]);
         let n = arr1(&(1..=N).map(|i| i as f32).collect::<Vec<f32>>());
 
-        let mut string = Self{ string_number, N, n, fs_multiplier, pc, sc, vc, ss, va, fs, dt, inside_phi};
+        let mut string = Self{ string_number, N, n, fs_multiplier, pc, sc, vc, ss, va, fs, dt, inside_phi, inv_A};
         string.set_physical_constants();
 
         // srand( time(NULL) );
@@ -163,14 +165,14 @@ impl ArtifastringString {
         self.vc.recache = true;
     }
 
-    pub fn cache_pa_c(&mut self) {
+    pub fn cache_pa_c(&mut self) -> Result<(), Report> {
         self.setup_vc_positions();
 
         self.vc.phix0 = self.sc.sqrt_two_div_L * ( self.vc.x0*&self.inside_phi ).sin();
         self.vc.phix1 = self.sc.sqrt_two_div_L * ( self.vc.x1*&self.inside_phi ).sin();
 
         #[allow(non_snake_case)]
-        let _A00 = (&self.sc.X3 * &self.vc.phix0 * &self.vc.phix0).sum();
+        let A00 = (&self.sc.X3 * &self.vc.phix0 * &self.vc.phix0).sum();
         #[allow(non_snake_case)]
         let A01 = (&self.sc.X3 * &self.vc.phix0 * &self.vc.phix1).sum();
         #[allow(non_snake_case)]
@@ -194,6 +196,7 @@ impl ArtifastringString {
                 self.vc.D3 = B01 * self.vc.R1 * L1;
 
                 // finger-during-bowing coefficients
+                #[allow(non_snake_case)]
                 let L2 = -1.0 / (B11*self.vc.R1 + A11*self.vc.K1 + 1.0);
                 self.vc.D5 = (B01*self.vc.R1 + A01*self.vc.K1) * L2;
                 self.vc.D6 = self.vc.R1 * L2;
@@ -201,28 +204,69 @@ impl ArtifastringString {
             },
             ActionType::Pluck => {
                 self.vc.phix2 = self.sc.sqrt_two_div_L * ( self.vc.x2*&self.inside_phi ).sin();
+                #[allow(non_snake_case)]
                 let A02 = (&self.sc.X3 * &self.vc.phix0 * &self.vc.phix2).sum();
+                #[allow(non_snake_case)]
                 let A12 = (&self.sc.X3 * &self.vc.phix1 * &self.vc.phix2).sum();
+                #[allow(non_snake_case)]
                 let A22 = (&self.sc.X3 * &self.vc.phix2 * &self.vc.phix2).sum();
+                #[allow(non_snake_case)]
+                let B02 = (&self.sc.Y3 * &self.vc.phix0 * &self.vc.phix2).sum();
+                #[allow(non_snake_case)]
+                let B12 = (&self.sc.Y3 * &self.vc.phix1 * &self.vc.phix2).sum();
+                #[allow(non_snake_case)]
+                let B22 = (&self.sc.Y3 * &self.vc.phix2 * &self.vc.phix2).sum();
 
-                // const float B02 = (sc.Y3 * vc.phix0 * vc.phix2).sum();
-                // const float B12 = (sc.Y3 * vc.phix1 * vc.phix2).sum();
-                // const float B22 = (sc.Y3 * vc.phix2 * vc.phix2).sum();
+                #[allow(non_snake_case)]
+                let matrix_A = Matrix3::new(
+                    B00*self.vc.R0 + A00*self.vc.K0 + 1.0,
+                    B01*self.vc.R0 + A01*self.vc.K0,
+                    B02*self.vc.R0 + A02*self.vc.K0,
+                    B01*self.vc.R1 + A01*self.vc.K1,
+                    B11*self.vc.R1 + A11*self.vc.K1 + 1.0,
+                    B12*self.vc.R1 + A12*self.vc.K1,
+                    B02*self.vc.R2 + A02*self.vc.K2,
+                    B12*self.vc.R2 + A12*self.vc.K2,
+                    B22*self.vc.R2 + A22*self.vc.K2 + 1.0,
+                );
+                self.inv_A = matrix_A.try_inverse().ok_or(eyre!("Failed to invert matrix."))?;
+            },
+            ActionType::Release => {
+                #[allow(non_snake_case)]
+                let M00 = A00*self.vc.K1 + B00*self.vc.R1 + 1.0;
+                #[allow(non_snake_case)]
+                let M01 = A01*self.vc.K1 + B01*self.vc.R1;
+                #[allow(non_snake_case)]
+                let M11 = A11*self.vc.K1 + B11*self.vc.R1 + 1.0;
 
-                // Eigen::Matrix3f matrix_A;
-                // matrix_A <<
-                //         B00*vc.R0 + A00*vc.K0 + 1.0f, B01*vc.R0 + A01*vc.K0,        B02*vc.R0 + A02*vc.K0,
-                //             B01*vc.R1 + A01*vc.K1,        B11*vc.R1 + A11*vc.K1 + 1.0f, B12*vc.R1 + A12*vc.K1,
-                //             B02*vc.R2 + A02*vc.K2,        B12*vc.R2 + A12*vc.K2,        B22*vc.R2 + A22*vc.K2 + 1.0f;
-                // //qr.compute(
-                // //    matrix_A);
+                #[allow(non_snake_case)]
+                let L3 = -1.0 / ( M00 * M11 - M01*M01 );
+                self.vc.D8 = -1.0 / M00;
+                self.vc.D9 = M01 * self.vc.D8;
+                self.vc.D10 = -M01 * L3;
+                self.vc.D11 = M00 * L3;
 
-                // inv_A = matrix_A.inverse();
+                // extra inv_A for any remaining tick_pluck() which
+                // occurs before a new buffer is called
+                // (i.e. the switch/case in fill_buffer)
+                #[allow(non_snake_case)]
+                let matrix_A = Matrix3::new(
+                    B00*self.vc.R0 + A00*self.vc.K0 + 1.0,
+                    B01*self.vc.R0 + A01*self.vc.K0,
+                    0.0,
+                    B01*self.vc.R1 + A01*self.vc.K1,
+                    B11*self.vc.R1 + A11*self.vc.K1 + 1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                );
+                self.inv_A = matrix_A.try_inverse().ok_or(eyre!("Failed to invert matrix."))?;
             }
             _ => (),
         }
 
-        todo!();
+        Ok(())
     }
 
     pub fn setup_vc_positions(&mut self)
@@ -310,10 +354,11 @@ impl ArtifastringString {
         }
     }
 
-    pub fn fill_buffer_forces(&mut self, _input: &[f32], _num_samples: u32){
+    pub fn fill_buffer_forces(&mut self, _input: &[f32], _num_samples: u32) -> Result<(), Report>{
         if self.vc.recache {
-            self.cache_pa_c();
+            self.cache_pa_c()?;
         }
+        Ok(())
     }
 }
 

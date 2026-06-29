@@ -232,8 +232,9 @@ impl ArtifastringInstrument {
         // calculate string buffers
         self.strings.iter_mut().enumerate().for_each(|(i, st)| {
             let input = &self.string_audio_lowpass_input[i];
-            st.fill_buffer_forces(input, num_samples);
-        })
+            // todo!()
+            st.fill_buffer_forces(input, num_samples).unwrap();
+        });
     }
 
     pub fn wait_samples_forces(&mut self, mono_wav: &mut MonoWav, num_samples: u32)  {

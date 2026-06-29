@@ -10,6 +10,7 @@ env_logger   = { version = "0.11.8", default-features = false }
 itertools    = { version = "0.14.0", default-features = false, features = ["use_std"]}
 log          = { version = "0.4.28", default-features = false }
 ndarray      = { version = "0.17.2", default-features = false, features = ["std"] }
+nalgebra     = { version = "0.35.0", default-features = false, features = ["std"] }
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]
