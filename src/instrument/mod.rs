@@ -150,6 +150,9 @@ impl ArtifastringInstrument {
             // rate. resample_time_data takes care of that, with memoization
             // resample_time_data(lowpass_time_data, lowpass_num_taps, instrument_sample_rate);
 
+            println!("lowpass_num_taps: {lowpass_num_taps}\n");
+            (0..10).for_each(|i| println!("\t{i}: {}", lowpass_time_data[i]));
+
             let convolution = ArtifastringConvolution::new(fs_multiply, lowpass_time_data, lowpass_num_taps);
             let input_buffer = convolution.get_input_buffer().to_vec();
 
@@ -233,14 +236,36 @@ impl ArtifastringInstrument {
         // })
 
         // calculate string buffers
+        // capture raw audio?
         for (_i, st) in self.strings.iter_mut().enumerate() {
             //let buffer = &self.string_audio_lowpass_input[i];
             // todo!()
+            println!("num_samples: {num_samples}");
             let buffer = st.fill_buffer_forces(num_samples)?;
             mono_wav.data = buffer;
             mono_wav.write_file()?;
             // self.string_audio_lowpass_input[i] = st.fill_buffer_forces(num_samples)?;
         }
+
+        // decimate string buffers
+    for (i, string) in self.strings.iter_mut().enumerate() {
+        let fs_multiply = string.fs_multiplier;
+        let _prep = self.string_audio_lowpass_convolution[i].process(fs_multiply*num_samples);
+
+    }
+    // for (int st=0; st<NUM_VIOLIN_STRINGS; st++) {
+
+    //     float prep[NORMAL_BUFFER_SIZE*fs_multiply];
+    //     string_audio_lowpass_convolution[st]->process(prep, fs_multiply*num_samples);
+    //     for (int i=0; i<num_samples; i++) {
+    //         string_audio_output[st][i] = prep[fs_multiply*i];
+    //     }
+
+    //     string_force_lowpass_convolution[st]->process(prep, fs_multiply*num_samples);
+    //     for (int i=0; i<num_samples; i++) {
+    //         string_force_output[st][i] = prep[fs_multiply*i];
+    //     }
+    // }
 
         //todo!();
 
