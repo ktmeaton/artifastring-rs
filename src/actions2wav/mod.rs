@@ -1,5 +1,6 @@
 use crate::cli;
 use crate::{Action, ActionType, ArtifastringInstrument, MonoWav};
+use crate::constants::*;
 
 use color_eyre::eyre::{Report, Result, WrapErr};
 use itertools::Itertools;
@@ -32,22 +33,26 @@ pub fn run(args: &cli::actions2wav::Args) -> Result<(), Report> {
         args.instrument_type,
         args.instrument_number,
         args.sample_rate
-    );
+    )?;
+    let _buffer = play_file(&actions, &mut artifastring_instrument)?;
     let mut mono_wav = MonoWav::new();
-    play_file(&actions, &mut artifastring_instrument, &mut mono_wav)?;
-
+    // convert f32 buffer to little endian bytes
+    // mono_wav.data = buffer.into_iter().map(|d| (d as i16).to_le_bytes()).collect();
+    mono_wav.write_sine_wave(330.0, 1 * ARTIFASTRING_INSTRUMENT_SAMPLE_RATE);
+    mono_wav.write_file(&args.output)?;
     Ok(())
 }
 
 pub fn play_file(
     input: &[Action],
     instrument: &mut ArtifastringInstrument,
-    mono_wav: &mut MonoWav,
-) -> Result<(), Report> {
-    mono_wav.total_samples = 0;
+) -> Result<Vec<f32>, Report> {
+
+    let mut buffer = Vec::new();
 
     for command in input.iter() {
-        wait_until(instrument, mono_wav, command)?;
+        let output = wait_until(instrument, command)?;
+        buffer.extend(output);
         match command.action_type {
             ActionType::Release       => instrument.reset(),
             ActionType::Finger        => instrument.finger(command),
@@ -58,27 +63,17 @@ pub fn play_file(
             ActionType::Off           => todo!(),
         }
     }
-    // delete violin
-    // delete mono_wav
-    Ok(())
+    Ok(buffer)
 }
 
 pub fn wait_until (
     instrument: &mut ArtifastringInstrument,
-    mono_wav: &mut MonoWav,
     command: &Action,
-) -> Result<(), Report>
+) -> Result<Vec<f32>, Report>
 {
-    println!("{command:?}");
-    let delta = (command.seconds * (mono_wav.sample_rate as f32 ) - (mono_wav.total_samples as f32)) as i32;
-    if delta >= 0 {
-        instrument.wait_samples_forces(mono_wav, delta as u32)?;        
-        mono_wav.total_samples += delta as u32;
-    } else {
-        println!("ERROR: going back in time!");
-        // TBD: more logging
-    }
-    Ok(())
-    //println!("until: {}, delta: {delta}, total_samples: {}", command.seconds, mono_wav.total_samples);
+    let delta = command.seconds * (ARTIFASTRING_INSTRUMENT_SAMPLE_RATE as f32);
+    let buffer = instrument.wait_samples_forces(delta as u32)?;
+    debug!("wait_until: {command:?}");
+    Ok(buffer)
 }
 

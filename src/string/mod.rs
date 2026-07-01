@@ -30,6 +30,7 @@ pub struct ArtifastringString {
     pub dt: f32,
     pub inside_phi: Array1<f32>,
     pub inv_A: Matrix3<f32>,
+    pub debug_ticks: u32,
 }
 
 
@@ -50,7 +51,7 @@ impl ArtifastringString {
 
         let _tick_output_force: f32;
         let _num_friction_skip_over_stick: u32;
-        let _debug_ticks: u32;
+        let debug_ticks = 0;
         let _debug_string_num = string_number;
     
         let sc = StringConstants::default();
@@ -78,7 +79,7 @@ impl ArtifastringString {
         let inside_phi = arr1(&vec![0.0; N]);
         let n = arr1(&(1..=N).map(|i| i as f32).collect::<Vec<f32>>());
 
-        let mut string = Self{ string_number, N, n, fs_multiplier, pc, sc, vc, ss, va, fs, dt, inside_phi, inv_A};
+        let mut string = Self{ string_number, N, n, fs_multiplier, pc, sc, vc, ss, va, fs, dt, inside_phi, inv_A, debug_ticks};
         string.set_physical_constants();
 
         // srand( time(NULL) );
@@ -165,6 +166,8 @@ impl ArtifastringString {
         self.vc.recache = true;
     }
 
+    /// Cache the ???
+    ///
     pub fn cache_pa_c(&mut self) -> Result<(), Report> {
         self.setup_vc_positions();
 
@@ -269,6 +272,11 @@ impl ArtifastringString {
         Ok(())
     }
 
+    /// Setup the ViolinistCoefficients
+    ///
+    /// Sets appropriate initial values based on the StringState actions.
+    ///
+    /// todo!() Are there any vc attributes that are not set by this?
     pub fn setup_vc_positions(&mut self)
     {
         self.vc.x1 = self.va.finger_position;
@@ -324,7 +332,7 @@ impl ArtifastringString {
         self.va.Kf = K_FINGER;
         self.ss = StringState::default();
 
-        // let debug_ticks = 0;
+        self.debug_ticks = 0;
     }
 
     pub fn finger(&mut self, command: &Action){
@@ -354,19 +362,37 @@ impl ArtifastringString {
         }
     }
 
-    pub fn fill_buffer_forces(&mut self, num_samples: u32) -> Result<Vec<u8>, Report>{
+    /// Fill buffer forces
+    ///
+    /// # Arguments
+    ///
+    /// * `num_samples` - Number of samples
+    // 
+    pub fn fill_buffer_forces(&mut self, num_samples_instrument: u32) -> Result<Vec<f32>, Report>{
+
+        // Cache the pa(?)
         if self.vc.recache {
             self.cache_pa_c()?;
         }
 
+        let num_samples = self.fs_multiplier * num_samples_instrument;
+        println!("# fill_buffer_forces()  string_num, ss.actions, ticks, num_samples_instrument, num_samples\n: {} {:?} {} {} {}",
+            self.string_number, self.ss.actions, self.debug_ticks, num_samples_instrument, num_samples);
         let mut buffer = Vec::new();
-        // write sine wave
-        for t in (0 .. num_samples).map(|x| x as f32 / 44100.0) {
-            let sample = (t * 440.0 * 2.0 * PI).sin();
-            let amplitude = i16::MAX as f32;
-            let data = ((sample * amplitude) as i16).to_le_bytes();
-            buffer.extend_from_slice(&data);
-        }
+
+        // Testing, debug sine wav
+        (0 .. num_samples).map(|i| i as usize).for_each(|i| buffer[i] = ( 10000.0*2.0*PI*self.dt*self.debug_ticks as f32).sin());
+
+        // Testing! write sine wave
+        // for t in (0 .. num_samples).map(|x| x as f32 / 44100.0) {
+        //     let sample = (t * 440.0 * 2.0 * PI).sin();
+        //     let amplitude = i16::MAX as f32;
+        //     let data = ((sample * amplitude) as i16).to_le_bytes();
+        //     buffer.extend_from_slice(&data);
+        //     self.debug_ticks += 1;
+        // }
+        // todo!() Actual playing sounds
+
         Ok(buffer)
     }
 }
@@ -460,6 +486,7 @@ pub struct StringState {
     a: Array1<f32>,
     ad: Array1<f32>,
     slipstate: u32,
+    // todo!() Maybe don't pluralize this?
     actions: ActionType,
 }
 

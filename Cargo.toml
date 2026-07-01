@@ -11,7 +11,8 @@ itertools    = { version = "0.14.0", default-features = false, features = ["use_
 log          = { version = "0.4.28", default-features = false }
 ndarray      = { version = "0.17.2", default-features = false, features = ["std"] }
 nalgebra     = { version = "0.35.0", default-features = false, features = ["std"] }
-rustfft      = { version = "6.4.1", default-features = false }
+realfft      = { version = "3.5.0", default-features = false }
+num-complex  = { version = "0.4.6", default-features = false }
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]

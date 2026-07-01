@@ -2,6 +2,8 @@ pub mod body;
 pub mod strings;
 pub mod lowpass;
 
+pub const ARTIFASTRING_INSTRUMENT_SAMPLE_RATE: u32 = 44100;
+
 // time length of each sample, in seconds
 // const dt: f32 = 1.0 / ARTIFASTRING_SAMPLE_RATE;
 

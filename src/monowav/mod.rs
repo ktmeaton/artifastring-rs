@@ -2,9 +2,11 @@
 use std::fs::File;
 use std::io::{Write, BufWriter};
 use color_eyre::eyre::{Report, Result};
+use log::debug;
 
 use std::f32::consts::PI;
 use std::i16;
+use std::path::Path;
 
 
 pub struct MonoWav {
@@ -38,19 +40,23 @@ impl MonoWav {
 
     }
 
-    pub fn write_data(&mut self){
-        for t in (0 .. 44100).map(|x| x as f32 / 44100.0) {
-            let sample = (t * 440.0 * 2.0 * PI).sin();
+    pub fn write_sine_wave(&mut self, frequency: f32, num_samples: u32){
+        self.data = Vec::new();
+        for n in 0 .. num_samples {
+            let t = n as f32 / 44100.0;
+            let raw = t * frequency * 2.0 * PI;
+            let sample = (t * frequency * 2.0 * PI).sin();
             let amplitude = i16::MAX as f32;
             let data = ((sample * amplitude) as i16).to_le_bytes();
+            debug!("n: {n}, t: {t}, raw: {raw}, sample: {sample}, amplitude: {amplitude}, original: {}, le: {:?}", sample * amplitude, data);
             self.data.extend_from_slice(&data);
         }
     }
 
-    pub fn write_file(&self) -> Result<(), Report>{
+    pub fn write_file(&self, path: impl AsRef<Path>) -> Result<(), Report>{
 
         // Create empty wav file
-        let file = File::create("data/manual.wav")?;
+        let file = File::create(path)?;
         let mut writer = BufWriter::new(file);
 
         // Calculate chunk sizes for header
