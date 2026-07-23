@@ -45,8 +45,8 @@ impl MonoWav {
         for n in 0 .. num_samples {
             let t = n as f32 / 44100.0;
             let raw = t * frequency * 2.0 * PI;
-            let sample = (t * frequency * 2.0 * PI).sin();
-            let amplitude = i16::MAX as f32;
+            let sample = (raw).sin();
+            let amplitude = (i16::MAX as f32) / 2.0;
             let data = ((sample * amplitude) as i16).to_le_bytes();
             debug!("n: {n}, t: {t}, raw: {raw}, sample: {sample}, amplitude: {amplitude}, original: {}, le: {:?}", sample * amplitude, data);
             self.data.extend_from_slice(&data);

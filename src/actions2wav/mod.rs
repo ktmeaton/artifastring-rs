@@ -38,7 +38,7 @@ pub fn run(args: &cli::actions2wav::Args) -> Result<(), Report> {
     let mut mono_wav = MonoWav::new();
     // convert f32 buffer to little endian bytes
     // mono_wav.data = buffer.into_iter().map(|d| (d as i16).to_le_bytes()).collect();
-    mono_wav.write_sine_wave(330.0, 1 * ARTIFASTRING_INSTRUMENT_SAMPLE_RATE);
+    mono_wav.write_sine_wave(440.0, 1 * ARTIFASTRING_INSTRUMENT_SAMPLE_RATE);
     mono_wav.write_file(&args.output)?;
     Ok(())
 }

@@ -235,12 +235,14 @@ impl ArtifastringInstrument {
 
     pub fn handle_buffer(&mut self, num_samples: u32) -> Result<Vec<f32>, Report> {
 
-        let buffer = Vec::new();
-
         // -- Clear input buffers for the lowpass convolution
         // -- FIXME: maybe not necessary?  especially force?
-        self.string_audio_lowpass_convolution.iter_mut().for_each(|conv| { conv.clear_input_buffer(); });
-        self.string_force_lowpass_convolution.iter_mut().for_each(|conv| { conv.clear_input_buffer(); });
+        self.string_audio_lowpass_convolution.iter_mut().for_each(|conv| { 
+            conv.clear_input_buffer();
+        });
+        self.string_force_lowpass_convolution.iter_mut().for_each(|conv| {
+            conv.clear_input_buffer();
+        });
 
         // calculate string buffers (ie. playing samples)
         for (i, st) in self.strings.iter_mut().enumerate() {
@@ -251,8 +253,12 @@ impl ArtifastringInstrument {
 
         // -- decimate string buffers
         for (i, string) in self.strings.iter_mut().enumerate() {
-            let prep = self.string_audio_lowpass_convolution[i].process(string.fs_multiplier*num_samples);
-            (0..num_samples).map(|n| n as usize).for_each(|n| self.string_audio_output[i][n] = prep[string.fs_multiplier as usize *n]);
+            let prep = self.string_audio_lowpass_convolution[i].process(
+                string.fs_multiplier*num_samples
+            );
+            (0..num_samples).map(|n| n as usize).for_each(|n| {
+                self.string_audio_output[i][n] = prep[string.fs_multiplier as usize *n]
+            });
         }
 
         // -- FIXME
@@ -260,40 +266,15 @@ impl ArtifastringInstrument {
         // write string audio output to body audio output
         self.body_audio_convolution.clear_input_buffer();
         for (i, _) in self.strings.iter().enumerate() {
-            (0..num_samples).map(|n| n as usize).for_each(|n| self.body_audio_input[i] += self.string_audio_output[i][n]);
+            (0..num_samples).map(|n| n as usize).for_each(|n| {
+                self.body_audio_input[i] += self.string_audio_output[i][n]
+            });
         }
-        let _output = self.body_audio_convolution.process(num_samples)[0..num_samples as usize].to_vec();
+        let output = self.body_audio_convolution.process(
+            num_samples
+        )[0..num_samples as usize].to_vec();
 
-
-        //     for (int st=0; st<NUM_VIOLIN_STRINGS; st++) {
-        //         for (int i=0; i<num_samples; i++) {
-        //             body_audio_input[i] += string_audio_output[st][i];
-        //         }
-        //     }
-        //     float prep[NORMAL_BUFFER_SIZE];
-        //     body_audio_convolution->process(prep, num_samples);
-        //     for (int i=0; i<num_samples; i++) {
-        //         output[i] = prep[i];
-        //     }
-        // }
-
-    // for (int st=0; st<NUM_VIOLIN_STRINGS; st++) {
-
-    //     float prep[NORMAL_BUFFER_SIZE*fs_multiply];
-    //     string_audio_lowpass_convolution[st]->process(prep, fs_multiply*num_samples);
-    //     for (int i=0; i<num_samples; i++) {
-    //         string_audio_output[st][i] = prep[fs_multiply*i];
-    //     }
-
-    //     string_force_lowpass_convolution[st]->process(prep, fs_multiply*num_samples);
-    //     for (int i=0; i<num_samples; i++) {
-    //         string_force_output[st][i] = prep[fs_multiply*i];
-    //     }
-    // }
-
-        //todo!();
-
-        Ok(buffer)
+        Ok(output)
     }
 
     /// process num_samples in chunks of buffer size
